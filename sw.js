@@ -2,7 +2,7 @@
 // 更新するときは VERSION の数字を上げる
 // 同じアドレス（nhori-navi.github.io）のほかのアプリとキャッシュの置き場を共有しているので、
 // 消すのは "tategumi" で始まるものだけにする
-const VERSION = "tategumi-v4";
+const VERSION = "tategumi-v5";
 const SHELL = ["./", "index.html", "manifest.webmanifest",
   "icons/icon-192.png", "icons/icon-512.png", "icons/maskable-512.png", "icons/apple-touch-icon.png"];
 const RUNTIME = "tategumi-runtime";
