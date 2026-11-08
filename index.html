@@ -167,8 +167,13 @@ pre.json{font-size:11px;line-height:1.5;background:color-mix(in srgb,var(--rule)
 .btnrow button.primary{border-color:var(--accent);color:var(--accent)}
 .sheet a{color:var(--accent)}
 /* 情報 */
-.hint-group{display:grid;gap:4px;margin-bottom:8px}
-.hint-group b{font-size:12px;font-weight:500;color:var(--ink-soft)}
+.hint-group{border:1px solid var(--rule);border-radius:10px;margin-bottom:6px}
+.hint-group summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;padding:9px 12px;font-size:13px}
+.hint-group summary::-webkit-details-marker{display:none}
+.hint-group summary::before{content:"";width:.45em;height:.45em;border-right:1.5px solid var(--ink-soft);border-bottom:1.5px solid var(--ink-soft);transform:rotate(-45deg);transition:transform .15s}
+.hint-group[open] summary::before{transform:rotate(45deg)}
+.hint-n{margin-left:auto;font-size:12px;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+.hint-group .hint-items{padding:0 12px 12px}
 .hint-items{display:flex;flex-wrap:wrap;gap:6px}
 .hint-items button{border:1px solid var(--rule)!important;padding:4px 10px;font-family:var(--f-text);font-size:14px;border-radius:999px}
 .hint-items button:hover{border-color:var(--accent)!important}
@@ -540,10 +545,9 @@ const SAMPLE = [
 ].join("\n");
 
 /* ---------- 版情報（GitHubに置くときに書き換わる） ---------- */
-const APP_VERSION = "12", APP_DATE = "2026-11-08";
+const APP_VERSION = "13", APP_DATE = "2026-11-08";
 const APP_NOTES = [
-  "新しい版を出したとき、アプリを開き直すだけで切り替わるようにしました（ブラウザの一時保存を通さずに最新を確かめ、受け取ったら自動で読み込み直します）",
-  "新しい版に切り替わったときに、そのことをお知らせするようにしました"
+  "「情報」の「この作品の手がかりと注」を、種類ごとに畳めるようにしました。はじめは畳んだ状態で、押すと開きます"
 ];
 
 /* ---------- 小道具 ---------- */
@@ -1722,7 +1726,7 @@ function fillHints(){
       const dot = k.kind === "color" ? `<span class="sw-dot" style="background:${k.hex}"></span>` : "";
       return `<button type="button" data-hint="${id}">${dot}${esc(k.text)}</button>`;
     }).join("");
-    return `<div class="hint-group"><b>${label}</b><div class="hint-items">${items}</div></div>`;
+    return `<details class="hint-group"><summary>${label}<span class="hint-n">${seen.size}語</span></summary><div class="hint-items">${items}</div></details>`;
   }).join("");
   box.innerHTML = groups || `<p class="bm-empty">この作品では、まだ手がかりが見つかっていません。旧字体は、本文の字を長押しすると調べられます。</p>`;
   box.querySelectorAll("[data-hint]").forEach(b => b.onclick = () => jumpToHint(+b.dataset.hint));
