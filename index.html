@@ -125,6 +125,8 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .hw.ho{position:relative;top:-.5em}
 .eng .tcy{letter-spacing:0;margin-inline-end:var(--ls,0)}
 .eng rt{letter-spacing:0}
+.rb{position:relative}
+.rt{position:absolute;left:100%;top:50%;transform:translateY(-50%);margin-left:.04em;font-size:.5em;line-height:1;letter-spacing:0;white-space:nowrap;font-weight:400;text-indent:0}
 .z,.z *{letter-spacing:0}
 .z.hw,.z.tcy{margin-inline-end:0}
 .e-title{font-size:1.75em;font-weight:600}
@@ -521,12 +523,10 @@ const SAMPLE = [
 ].join("\n");
 
 /* ---------- 版情報（GitHubに置くときに書き換わる） ---------- */
-const APP_VERSION = "8", APP_DATE = "2026-11-08";
+const APP_VERSION = "9", APP_DATE = "2026-11-08";
 const APP_NOTES = [
-  "よく出る言葉約400語に、意味の解説（AIが作成）を付けました。点線の印のある言葉を押すと出ます",
-  "手がかりのカードから「誤りを知らせる」で、運営に知らせられるようにしました",
-  "作品ごとの読む時間の目安を表示し、索引の「読む時間」から探せるようにしました",
-  "おすすめの「大きめでゆったり」「電車で片手で」「机でじっくり」は、端末の設定にかかわらず明るい配色にしました"
+  "ルビが親文字より長いところで、親文字が前後の字に重なって詰まって見える不具合を直しました（「檜（ひのき）の」「烏瓜（からすうり）の」など）",
+  "ルビを自前で配置するようにし、二字以上の親文字の間が不自然に広がらないようにしました"
 ];
 
 /* ---------- 小道具 ---------- */
@@ -927,17 +927,15 @@ function buildUnits(L){
       let bw = 0; for (let t = sp.s; t < sp.e; t++) bw += cells[t].g ? 1 : emWidth(cells[t].ch);
       const rw = [...sp.rt].length * 0.5, excess = Math.max(0, rw - bw);
       const isKana = c => c && !c.g && (HIRA.test(c.ch) || KATA.test(c.ch));
-      let ovA = 0, ovB = 0;
-      if (excess > 0){
-        const half = excess / 2;
-        ovA = isKana(cells[sp.s - 1]) ? Math.min(0.5, half) : 0;
-        ovB = isKana(cells[sp.e]) ? Math.min(0.5, half) : 0;
-        if (!ovA && ovB) ovB = Math.min(0.5, excess);   // 片側だけ掛けられるときは、そちらに寄せる
-        if (!ovB && ovA) ovA = Math.min(0.5, excess);
-      }
-      const mstyle = (ovA || ovB) ? ` style="margin-inline:${-ovA}em ${-ovB}em"` : "";
-      u = {k:"ruby", html:`<ruby${mstyle}>${run(sp.s, sp.e)}<rp>（</rp><rt>${esc(sp.rt)}</rt><rp>）</rp></ruby>`,
-           w:Math.max(bw, rw) - ovA - ovB, n:sp.e - sp.s, a:CL[cells[sp.s].ch], z:CL[cells[sp.e - 1].ch]};
+      // ルビは親文字の中央に置き、はみ出す分は前後のかなに半字まで掛ける。
+      // 掛けられない側（漢字や約物）は、その分だけ親文字の外を空ける。親文字どうしの間は広げない。
+      const half = excess / 2;
+      const ovA = isKana(cells[sp.s - 1]) ? Math.min(0.5, half) : 0;
+      const ovB = isKana(cells[sp.e]) ? Math.min(0.5, half) : 0;
+      const mA = +(half - ovA).toFixed(3), mB = +(half - ovB).toFixed(3);
+      const mstyle = (mA || mB) ? ` style="margin-inline:${mA}em ${mB}em"` : "";
+      u = {k:"ruby", html:`<span class="rb"${mstyle}>${run(sp.s, sp.e)}<span class="rt">${esc(sp.rt)}</span></span>`,
+           w:bw + mA + mB, n:sp.e - sp.s, a:CL[cells[sp.s].ch], z:CL[cells[sp.e - 1].ch]};
       u.d = deco[q]; q = sp.e;
     } else if (tcyAt.has(q)){
       const sp = tcyAt.get(q);
@@ -1131,7 +1129,7 @@ function measureLines(){
   while ((n = walker.nextNode())){
     const el = n.parentElement;
     if (!n.nodeValue || el.closest("rp")) continue;
-    const inRt = !!el.closest("rt");
+    const inRt = !!el.closest("rt,.rt");
     range.selectNodeContents(n);
     for (const r of range.getClientRects()){
       if (r.width <= 0 || r.height <= 0) continue;
@@ -1811,7 +1809,7 @@ function charAt(x, y){
   let node, off;
   if (document.caretPositionFromPoint){ const c = document.caretPositionFromPoint(x, y); if (c){ node = c.offsetNode; off = c.offset; } }
   else if (document.caretRangeFromPoint){ const r = document.caretRangeFromPoint(x, y); if (r){ node = r.startContainer; off = r.startOffset; } }
-  if (!node || node.nodeType !== 3 || node.parentElement.closest("rt,rp")) return null;
+  if (!node || node.nodeType !== 3 || node.parentElement.closest("rt,rp,.rt")) return null;
   const rg = document.createRange();
   for (const o of [off, off - 1]){
     if (o < 0 || o >= node.length) continue;
