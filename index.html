@@ -540,9 +540,10 @@ const SAMPLE = [
 ].join("\n");
 
 /* ---------- 版情報（GitHubに置くときに書き換わる） ---------- */
-const APP_VERSION = "11", APP_DATE = "2026-11-08";
+const APP_VERSION = "12", APP_DATE = "2026-11-08";
 const APP_NOTES = [
-  "書体によってルビが親文字から離れて表示される不具合を直しました（版9で入れたルビの配置の修正）"
+  "新しい版を出したとき、アプリを開き直すだけで切り替わるようにしました（ブラウザの一時保存を通さずに最新を確かめ、受け取ったら自動で読み込み直します）",
+  "新しい版に切り替わったときに、そのことをお知らせするようにしました"
 ];
 
 /* ---------- 小道具 ---------- */
@@ -2164,11 +2165,25 @@ renderPresets();
 const last = store.get("aozora:last", null);
 loadText(last || SAMPLE, false);
 if (!store.get("aozora:toured", false)) setTimeout(() => showTour(0), 600);
+// 新しい版に切り替わったら知らせる
+if (!APP_VERSION.startsWith("__")){
+  const seen = store.get("aozora:ver", null);
+  if (seen && seen !== APP_VERSION) setTimeout(() => toast(`青空縦組が版${APP_VERSION}になりました。変更点は「情報」の版情報で見られます。`), 900);
+  store.set("aozora:ver", APP_VERSION);
+}
 </script>
 
 <script>
 if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+  const hadController = !!navigator.serviceWorker.controller;
+  let reloading = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (!hadController || reloading) return;          // 初めて入れたときは読み込み直さない
+    reloading = true; location.reload();
+  });
+  addEventListener("load", () => navigator.serviceWorker.register("sw.js", {updateViaCache: "none"}).then(reg => {
+    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") reg.update().catch(() => {}); });
+  }).catch(() => {}));
 }
 </script>
 </body>
