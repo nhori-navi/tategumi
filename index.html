@@ -593,10 +593,10 @@ const SAMPLE = [
 ].join("\n");
 
 /* ---------- 版情報（GitHubに置くときに書き換わる） ---------- */
-const APP_VERSION = "17", APP_DATE = "2026-11-08";
+const APP_VERSION = "18", APP_DATE = "2026-11-08";
 const APP_NOTES = [
-  "今日の一頁に、作品の初出（はじめて世に出た雑誌や年）と、その作家の作品が青空文庫にいくつあるかを添えました。「この作家の作品をもっと見る」から作家別の一覧へ進めます",
-  "作品を最後まで読んでから次の頁へ進むと、「読了」のカードが出ます。底本と、本文を入力・校正した方のお名前をあらためて載せ、この作家のほかの作品や次の作品探しへつなぎます"
+  "今日の一頁と読了のカードに、作家の生没年と、作品を発表したときの作者の年齢（「作者54歳のとき」など）を添えました",
+  "作品の初出を、青空文庫の図書カードの記録からも拾うようにしたため、初出が出る作品がおよそ一万に増えました"
 ]
 
 /* 応援のリンク（決まったら入れる。空のあいだは出さない） */
@@ -1446,8 +1446,9 @@ const next = () => atEnd() ? showEnd() : show(pageIdx + step(), 1);
 const prev = () => show(pageIdx - step(), -1);
 
 /* ---------- 作品の読み込み ---------- */
-function loadText(text, persist){
+function loadText(text, persist, workId){
   isSample = text === SAMPLE;
+  if (persist || isSample){ curWork = workId || null; store.set("aozora:lastId", curWork); }
   doc = parseAozora(text);
   annotateDoc(doc);
   docKey = doc.title + "／" + doc.author;
@@ -1585,7 +1586,7 @@ const yearOf = t => { const m = z2h(t || "").match(/(1[6-9]\d\d|20\d\d)/); retur
 const strip = t => (t || "").replace(/[\s　]/g, "");
 const dispName = n => /[ァ-ヺ]/.test(n) ? n.replace(/\s+/g, "・") : strip(n);   // 文中では「萩原朔太郎」「アーヴィング・ワシントン」
 /* 紹介の行：生没年・初出と作者の年齢・作品数。どれもデータから組み立て、ないものは出さない */
-function introHtml(w, first){
+function introHtml(w, first, name){
   const d = IDX; if (!d) return "";
   const a = w[7][0], p = a != null ? d.p[a] : null;
   const life = p && p[3] ? `（${p[3]}–${p[4] || ""}）` : "";
@@ -1594,10 +1595,11 @@ function introHtml(w, first){
   let age = "";
   if (p && p[3] && y){ const n = y - p[3]; if (p[4] && y > p[4]) age = "　作者の没後に発表"; else if (n >= 10 && n <= 100) age = `　作者${n}歳のとき`; }
   const count = p ? d.w.filter(x => !(x[6] & 1) && x[7].includes(a)).length : 0;
+  const nm = name || (p ? dispName(p[1]) : "");   // 読了のカードでは本文の表記（「龍」など）にそろえる
   const rows = [];
-  if (life) rows.push(`<span>${esc(dispName(p[1]))}${life}</span>`);
+  if (life) rows.push(`<span>${esc(nm)}${life}</span>`);
   if (first) rows.push(`<span>初出：${esc(first)}${age}</span>`);
-  if (count > 1) rows.push(`<span>${esc(dispName(p[1]))}の作品は、青空文庫で${count}作読めます</span><button type="button" class="more" data-author="${a}">この作家の作品をもっと見る</button>`);
+  if (count > 1) rows.push(`<span>${esc(nm)}の作品は、青空文庫で${count}作読めます</span><button type="button" class="more" data-author="${a}">この作家の作品をもっと見る</button>`);
   return rows.length ? `<div class="intro">${rows.join("")}</div>` : "";
 }
 function showAuthor(a){
@@ -1684,16 +1686,23 @@ $("#greet").addEventListener("click", e => { if (e.target === $("#greet")) close
 
 /* 読み終えたとき：底本と入力・校正の方を改めて載せ、次の一冊へつなぐ */
 let isSample = false;
+/* いま開いている作品の索引の行。番号で引き、分からなければ題名と作家名で探す（字体の違いは見ない） */
+function curWorkEntry(){
+  if (!IDX) return null;
+  if (curWork) return IDX.w.find(x => x[0] === curWork) || null;
+  const byTitle = IDX.w.filter(x => strip(x[1]) === strip(doc.title));
+  return byTitle.find(x => x[7].some(i => strip(IDX.p[i][1]) === strip(doc.author))) || (byTitle.length === 1 ? byTitle[0] : null);
+}
 function closeEnd(){ $("#endcard").hidden = true; }
 const atEnd = () => turn !== "scroll" && pages.length && pageIdx + step() > pages.length - 1;
 async function showEnd(){
   if (isSample || !doc) return;
   try { await loadIndex(); } catch (e) {}
-  const w = IDX ? (IDX.w.find(x => x[1] === doc.title && x[7].some(i => strip(IDX.p[i][1]) === strip(doc.author))) || null) : null;
+  const w = curWorkEntry();
   const colo = doc.colophon, base = colField(colo, "底本"), inp = colField(colo, "入力"), proof = colField(colo, "校正");
   const credit = [base && `底本：${esc(base.slice(0, 80))}`, inp && `入力：<b>${esc(inp)}</b>`, proof && `校正：<b>${esc(proof)}</b>`].filter(Boolean);
   $("#endBody").innerHTML = `<h3>${esc(doc.title)}</h3><p class="ended">${esc(doc.author)}${w && w[12] ? `・${fmtMin(w[12])}の作品` : "の作品"}を、読み終えました。</p>`
-    + (w ? introHtml(w, colField(colo, "初出")) : "")
+    + (w ? introHtml(w, colField(colo, "初出"), strip(doc.author)) : "")
     + (credit.length ? `<p class="credit">${credit.join("<br>")}<br>この本文は、青空文庫の皆さんが入力し、校正したものです。</p>` : "")
     + (SUPPORT.url ? `<p class="support"><a href="${esc(SUPPORT.url)}" target="_blank" rel="noopener">${esc(SUPPORT.label)}</a></p>` : "");
   $("#endBtns").innerHTML = `<button type="button" id="endBack">最後の頁に戻る</button><button type="button" class="primary" id="endFind">次の作品を探す</button>`;
@@ -1810,7 +1819,7 @@ async function openWork(id, row){
 async function openShelf(id){ const b = await shelf.get(id); if (b) openBook(b); }
 function openBook(b){
   b.at = Date.now(); shelf.put(b);
-  loadText(b.text, true);
+  loadText(b.text, true, /^w\d+$/.test(b.id) ? +b.id.slice(1) : null);
   closeSheets();
   toast(`「${b.title}」を開きました。`);
 }
@@ -2382,6 +2391,7 @@ applyPaper();
 renderPresets();
 const last = store.get("aozora:last", null);
 loadText(last || SAMPLE, false);
+if (last) curWork = store.get("aozora:lastId", null);
 if (!store.get("aozora:toured", false)) setTimeout(() => showTour(0), 600);   // 初めての人は使い方ナビを先に
 else setTimeout(showGreet, 400);
 // 新しい版に切り替わったら知らせる
