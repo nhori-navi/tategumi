@@ -79,7 +79,8 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 #frame.scrolling #clip{writing-mode:vertical-rl;overflow-x:auto;overflow-y:hidden;overscroll-behavior:contain;scrollbar-width:none;touch-action:pan-x}
 #frame.scrolling #clip::-webkit-scrollbar{display:none}
 #frame.scrolling #content{position:relative;top:auto;right:auto;transform:none!important}
-#ghost{position:absolute;top:0;right:0;height:100%;overflow:hidden;pointer-events:none;background:var(--paper)}
+#ghost{position:absolute;top:0;right:0;height:100%;overflow:hidden;pointer-events:none;background-color:var(--paper);background-image:var(--grain,none);background-size:var(--grain-size,auto);background-attachment:fixed}
+#app{background-color:var(--paper);background-image:var(--grain,none);background-size:var(--grain-size,auto)}
 #content,#ghostContent{position:absolute;top:0;right:0;height:100%;
   writing-mode:vertical-rl;-webkit-writing-mode:vertical-rl;
   font-family:var(--f-text);color:var(--ink);
@@ -211,6 +212,28 @@ details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
 .folio .nombre{font-variant-numeric:tabular-nums;letter-spacing:.05em}
 .folio .hashira{flex:1;text-align:center;letter-spacing:.6em;padding-left:.6em;white-space:nowrap;overflow:hidden;text-overflow:clip}
 @media (prefers-reduced-motion:reduce){.folio{transition:none}}
+/* おすすめ */
+.presets{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.preset{display:grid;gap:3px;text-align:left;border:1px solid var(--rule)!important;border-radius:10px;padding:10px 12px}
+.preset b{font-weight:500;font-size:14px}
+.preset span{font-size:12px;color:var(--ink-soft);line-height:1.5}
+.preset[aria-pressed="true"]{border-color:var(--accent)!important}
+.preset[aria-pressed="true"] b{color:var(--accent)}
+/* 使い方ナビ */
+.tour{position:absolute;inset:0;z-index:20;background:rgba(12,16,22,.62);color:#f4f6f4;display:flex;flex-direction:column;justify-content:flex-end;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px calc(20px + env(safe-area-inset-bottom,0px))}
+.tour-zones{position:absolute;inset:52px 0 44px;display:grid;grid-template-columns:36fr 28fr 36fr;pointer-events:none}
+.tour-zones div{border:2px dashed rgba(244,246,244,.55);margin:10px 6px;border-radius:12px;display:grid;place-items:center;text-align:center;font-size:14px;line-height:1.6;padding:6px}
+.tour-zones span{background:rgba(12,16,22,.78);border-radius:8px;padding:6px 8px}
+.tour-zones small{display:block;font-size:12px;opacity:.85}
+.tour-card{position:relative;max-width:520px;margin:0 auto;width:100%;box-sizing:border-box;background:var(--paper);color:var(--ink);border-radius:14px;padding:16px 18px;box-shadow:0 10px 40px rgba(0,0,0,.3)}
+.tour-card h3{margin:0 0 6px;font-size:16px;font-weight:500;color:var(--ink)}
+.tour-card p{margin:0;font-size:14px;line-height:1.8}
+.tour-card .step{font-size:11px;color:var(--ink-soft);letter-spacing:.08em;margin-bottom:4px}
+.tour-card .btnrow{justify-content:flex-end}
+.tour-card .btnrow button{border:1px solid var(--rule);padding:8px 14px}
+.tour-card .btnrow button.primary{border-color:var(--accent);color:var(--accent)}
+.tour-hl{position:absolute;border:2px solid #f4f6f4;border-radius:10px;pointer-events:none;box-shadow:0 0 0 4px rgba(244,246,244,.25)}
 /* しおり */
 .ribbon{position:absolute;top:-8px;right:calc(-.55 * var(--mx,20px) - 5px);width:10px;height:40px;background:var(--accent);pointer-events:none;z-index:2;
   clip-path:polygon(0 0,100% 0,100% 100%,50% 78%,0 100%)}
@@ -247,7 +270,7 @@ details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
 .dock-head{display:flex;align-items:center;gap:8px;padding-block:8px 6px;
   padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px))}
 .tabs{flex:1;display:flex;gap:2px;overflow-x:auto}
-.tabs button{padding:6px 12px;font-size:14px;color:var(--ink-soft);border-radius:999px;white-space:nowrap}
+.tabs button{padding:6px 10px;font-size:13.5px;color:var(--ink-soft);border-radius:999px;white-space:nowrap}
 .tabs button[aria-selected="true"]{color:var(--paper);background:var(--accent)}
 .dock .x{font-size:13px;padding:4px 10px;border-color:var(--rule);white-space:nowrap}
 .dock-body{flex:1;overflow-y:auto;padding-block:4px 12px;
@@ -304,6 +327,7 @@ details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
   <section class="dock" id="sheetView" hidden aria-label="表示の調整">
     <div class="dock-head">
       <div class="tabs" role="tablist">
+        <button type="button" role="tab" data-pane="osusume">おすすめ</button>
         <button type="button" role="tab" data-pane="moji">文字</button>
         <button type="button" role="tab" data-pane="iro">配色</button>
         <button type="button" role="tab" data-pane="mekuri">めくり</button>
@@ -312,6 +336,10 @@ details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
       <button class="x" type="button" data-close>閉じる</button>
     </div>
     <div class="dock-body">
+      <div class="pane" data-pane="osusume">
+        <p class="note">読む場面を選ぶと、文字の大きさ・行間・配色・紙・めくり方がまとめて決まります。あとから細かく直すこともできます。</p>
+        <div class="presets" id="presets"></div>
+      </div>
       <div class="pane" data-pane="moji">
         <div class="faces" id="faces">
           <button type="button" data-face="Shippori Mincho" style="font-family:'Shippori Mincho',serif">しっぽり明朝</button>
@@ -321,9 +349,6 @@ details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
         <div class="field"><label for="rngSize">文字サイズ</label><input id="rngSize" type="range" min="12" max="30" step="1"><output id="outSize"></output></div>
         <div class="field"><label for="rngLh">行間</label><input id="rngLh" type="range" min="1.6" max="2.4" step="0.05"><output id="outLh"></output></div>
         <div class="field"><label for="rngChars">一行の字数</label><input id="rngChars" type="range" min="20" max="50" step="1"><output id="outChars"></output></div>
-        <div class="turns" id="presetRow">
-          <button type="button" id="btnBunko">文庫本に近づける（一行38字）</button>
-        </div>
         <div class="turns" id="folioRow">
           <button type="button" data-folio="on">柱とノンブルを出す</button>
           <button type="button" data-folio="off">出さない</button>
@@ -342,6 +367,14 @@ details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
         </div>
         <p class="note">明るいときの紙</p><div class="swatches" id="swLight"></div>
         <p class="note">暗いときの紙</p><div class="swatches" id="swDark"></div>
+        <p class="note">紙の質感</p>
+        <div class="turns" id="papers">
+          <button type="button" data-paper="none">なし</button>
+          <button type="button" data-paper="joshitsu">上質紙</button>
+          <button type="button" data-paper="shoseki">書籍用紙</button>
+          <button type="button" data-paper="washi">和紙</button>
+          <button type="button" data-paper="warabanshi">わら半紙</button>
+        </div>
         <div class="field"><label for="rngContrast">文字の濃さ</label><input id="rngContrast" type="range" min="60" max="100" step="5"><output id="outContrast"></output></div>
       </div>
       <div class="pane" data-pane="mekuri">
@@ -397,6 +430,7 @@ details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
     <p class="colo" id="infoColo"></p>
     <h3>版情報</h3>
     <dl class="kv" id="infoVersion"></dl>
+    <div class="btnrow"><button type="button" id="btnTour">使い方ナビを見る</button></div>
     <details class="dev">
       <summary>作り手向けの情報</summary>
       <h3>注記の読み取り結果</h3>
@@ -413,6 +447,23 @@ details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
     </details>
   </section>
 
+  <div class="tour" id="tour" hidden role="dialog" aria-label="使い方ナビ">
+    <div class="tour-zones" id="tourZones" hidden>
+      <div><span>次の頁へ<small>左を押す</small></span></div>
+      <div><span>帯の切替<small>中央を押す<br>二回でしおり</small></span></div>
+      <div><span>前の頁へ<small>右を押す</small></span></div>
+    </div>
+    <div class="tour-hl" id="tourHl" hidden></div>
+    <div class="tour-card">
+      <div class="step" id="tourStep"></div>
+      <h3 id="tourTitle"></h3>
+      <p id="tourText"></p>
+      <div class="btnrow">
+        <button type="button" id="tourSkip">閉じる</button>
+        <button type="button" class="primary" id="tourNext">次へ</button>
+      </div>
+    </div>
+  </div>
   <div class="toast" id="toast" hidden role="status"></div>
   <div class="drop" id="drop" hidden>ここに置くと開きます（.txt / .zip）</div>
   <input id="file" type="file" accept=".txt,.zip,text/plain,application/zip" hidden>
@@ -467,12 +518,12 @@ const SAMPLE = [
 ].join("\n");
 
 /* ---------- 版情報（GitHubに置くときに書き換わる） ---------- */
-const APP_VERSION = "6", APP_DATE = "2026-11-08";
+const APP_VERSION = "7", APP_DATE = "2026-11-08";
 const APP_NOTES = [
-  "親文字より長いルビを、前後のかなに掛けて収めるようにしました",
-  "入力者の注を、本の注解のように右肩の「＊」で示すようにしました",
-  "読書中に柱（作品名）とノンブル（頁番号）を出せるようにしました",
-  "「文庫本に近づける」で、一行38字・行間1.7にまとめて切り替えられるようにしました"
+  "読む場面を選ぶだけで設定がまとまる「おすすめ」を加えました（大きめでゆったり・文庫本の雰囲気・寝る前に・電車で片手で・机でじっくり）",
+  "初めて開いたときの「使い方ナビ」を加えました。「情報」からいつでも見られます",
+  "紙の質感（上質紙・書籍用紙・和紙・わら半紙）を選べるようにしました",
+  "一行38字にする「文庫本に近づける」は、文字が小さくなりすぎるため「文庫本の雰囲気」に置き換えました"
 ];
 
 /* ---------- 小道具 ---------- */
@@ -977,7 +1028,7 @@ function renderDocEngine(doc, N){
 function renderDoc(doc, N){ return S.engine ? renderDocEngine(doc, N) : renderDocBrowser(doc); }
 
 /* ---------- 版面と頁割り ---------- */
-const S = Object.assign({face:"Shippori Mincho", size:19, lh:1.85, chars:40, turn:"fade", light:"aozora", dark:"yoru", mode:"auto", contrast:100, engine:true, hang:true, margin:1.5, hints:true, folio:true}, store.get("aozora:settings", {}));
+const S = Object.assign({face:"Shippori Mincho", size:19, lh:1.85, chars:40, turn:"fade", light:"aozora", dark:"yoru", mode:"auto", contrast:100, engine:true, hang:true, margin:1.5, hints:true, folio:true, paper:"joshitsu"}, store.get("aozora:settings", {}));
 const app = $("#app"), stage = $("#stage"), frame = $("#frame"), clip = $("#clip"), content = $("#content");
 const ghost = $("#ghost"), ghostContent = $("#ghostContent");
 let turn = S.turn, anims = [];
@@ -1810,13 +1861,107 @@ function buildSwatches(){
     themeChanged();
   });
 }
-function themeChanged(){ applyTheme(); syncSettings(); store.set("aozora:settings", S); }
+function themeChanged(){ applyTheme(); applyPaper(); if (S.preset){ S.preset = null; renderPresets(); } syncSettings(); store.set("aozora:settings", S); }
 document.querySelectorAll("#modes button").forEach(b => b.onclick = () => { S.mode = b.dataset.mode; themeChanged(); });
 $("#rngContrast").oninput = e => { S.contrast = +e.target.value; themeChanged(); };
-if (darkMQ) darkMQ.addEventListener("change", applyTheme);
+if (darkMQ) darkMQ.addEventListener("change", () => { applyTheme(); applyPaper(); });
 new MutationObserver(applyTheme).observe(document.documentElement, {attributes:true, attributeFilter:["data-theme"]});
 buildSwatches();
 applyTheme();
+
+/* ---------- 紙の質感（画像を使わず、その場で描く） ---------- */
+function makeGrain(kind, dark){
+  if (kind === "none") return null;
+  const size = 220, dpr = Math.min(2, window.devicePixelRatio || 1), W = Math.round(size * dpr);
+  const cv = document.createElement("canvas"); cv.width = cv.height = W;
+  const g = cv.getContext("2d");
+  let seed = {joshitsu:11, shoseki:23, washi:37, warabanshi:53}[kind] || 7;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const ink = dark ? "255,255,255" : "60,45,25";
+  const dots = (n, rmax, amax) => { for (let i = 0; i < n; i++){ g.fillStyle = `rgba(${ink},${(rnd() * amax).toFixed(3)})`; const r = (0.3 + rnd() * rmax) * dpr; g.fillRect(rnd() * W, rnd() * W, r, r); } };
+  const fibers = (n, len, amax, wdt) => {
+    for (let i = 0; i < n; i++){
+      const x = rnd() * W, y = rnd() * W, a = rnd() * Math.PI * 2, L = (len * (0.4 + rnd())) * dpr;
+      g.strokeStyle = `rgba(${ink},${(0.02 + rnd() * amax).toFixed(3)})`; g.lineWidth = wdt * dpr * (0.5 + rnd());
+      for (const ox of [-W, 0, W]) for (const oy of [-W, 0, W]){
+        g.beginPath(); g.moveTo(x + ox, y + oy);
+        g.quadraticCurveTo(x + ox + Math.cos(a + 0.22) * L / 2, y + oy + Math.sin(a + 0.22) * L / 2, x + ox + Math.cos(a) * L, y + oy + Math.sin(a) * L);
+        g.stroke();
+      }
+    }
+  };
+  const k = dark ? 0.45 : 1;
+  if (kind === "joshitsu") dots(2600, 0.8, 0.035 * k);
+  if (kind === "shoseki"){ dots(4200, 1.0, 0.05 * k); fibers(14, 18, 0.025 * k, 0.5); }
+  if (kind === "washi"){ dots(2200, 1.0, 0.04 * k); fibers(70, 34, 0.035 * k, 0.5); }
+  if (kind === "warabanshi"){ dots(7000, 1.3, 0.07 * k); for (let i = 0; i < 40; i++){ g.fillStyle = `rgba(${ink},${(0.08 + rnd() * 0.12) * k})`; const r = (0.6 + rnd() * 1.4) * dpr; g.beginPath(); g.arc(rnd() * W, rnd() * W, r, 0, 7); g.fill(); } fibers(20, 14, 0.04 * k, 0.5); }
+  return {url: cv.toDataURL("image/png"), size};
+}
+function applyPaper(){
+  const dark = !!(THEMES[wantsDark() ? S.dark : S.light] || {}).dark;
+  const r = document.documentElement.style, gr = makeGrain(S.paper, dark);
+  if (gr){ r.setProperty("--grain", `url(${gr.url})`); r.setProperty("--grain-size", `${gr.size}px ${gr.size}px`); }
+  else { r.removeProperty("--grain"); r.removeProperty("--grain-size"); }
+}
+
+/* ---------- おすすめの設定 ---------- */
+const PRESETS = [
+  {id:"yuttari", name:"大きめでゆったり", desc:"文字を大きく、行間を広く。目にやさしい設定",
+   set:{size:24, lh:2.0, chars:32, margin:1.5, face:"BIZ UDMincho", contrast:100, mode:"auto", light:"shiro", paper:"joshitsu", turn:"fade"}},
+  {id:"bunko", name:"文庫本の雰囲気", desc:"読みやすい大きさのまま、行間と余白、紙を文庫本に寄せる",
+   set:{size:20, lh:1.75, chars:40, margin:1.75, face:"Shippori Mincho", contrast:100, mode:"light", light:"kinari", paper:"shoseki", turn:"fade"}},
+  {id:"nemae", name:"寝る前に", desc:"暗い灯りの色で、文字の濃さを控えめに。めくりはふわっと",
+   set:{size:21, lh:1.9, chars:36, margin:1.5, face:"Shippori Mincho", contrast:80, mode:"dark", dark:"akari", paper:"washi", turn:"fade"}},
+  {id:"densha", name:"電車で片手で", desc:"文字は大きめ。指でなぞって流れるスクロール",
+   set:{size:22, lh:1.8, chars:34, margin:1.0, face:"Shippori Mincho", contrast:100, mode:"auto", paper:"joshitsu", turn:"scroll"}},
+  {id:"tsukue", name:"机でじっくり", desc:"PCやタブレット向け。一行を長めに、余白を広く",
+   set:{size:21, lh:1.85, chars:42, margin:2.25, face:"Noto Serif JP", contrast:100, mode:"auto", light:"aozora", paper:"shoseki", turn:"slide"}}
+];
+function renderPresets(){
+  $("#presets").innerHTML = PRESETS.map(p => `<button type="button" class="preset" data-preset="${p.id}" aria-pressed="${S.preset === p.id}"><b>${p.name}</b><span>${p.desc}</span></button>`).join("");
+  document.querySelectorAll("[data-preset]").forEach(b => b.onclick = () => applyPreset(b.dataset.preset));
+}
+function applyPreset(id){
+  const p = PRESETS.find(x => x.id === id); if (!p) return;
+  const {turn: t, ...rest} = p.set;
+  Object.assign(S, rest, {preset:id, turn:t});
+  turn = t; if (docKey) store.set("aozora:turn:" + docKey, t);
+  applyTheme(); applyPaper(); renderPresets();
+  const go = () => { clip.scrollLeft = 0; clip.style.width = ""; changed(); };
+  if (document.fonts && document.fonts.load) document.fonts.load(`${S.size}px "${S.face}"`, "夜の停車場").then(go, go); else go();
+  toast(`「${p.name}」にしました。`);
+}
+
+/* ---------- 使い方ナビ ---------- */
+const TOUR = [
+  {title:"頁のめくり方", text:"本文の左を押すと次の頁、右を押すと前の頁へ進みます。指で横になぞってもめくれます。中央を押すと上下の帯が消えて、本を読むような画面になります。", zones:true},
+  {title:"しおりと、ことばの手がかり", text:"本文の中央あたりを二回続けて押すと、その行にしおりを挟めます。点線の印のある言葉を押すと、色や昔の単位の手がかりが出ます。どの字でも長押しすると、旧字体などを調べられます。"},
+  {title:"上の帯のボタン", text:"「探す」で作品を探して読み始められます。「表示」で文字や紙の見え方を、「しおり」で挟んだ場所を、「情報」で作品の底本やこの案内を見られます。", hl:".bar.top .tools"},
+  {title:"まずは、読む場面を選びましょう", text:"「表示」の「おすすめ」で読む場面を選ぶと、文字の大きさや配色がまとめて決まります。今から開いてみますか？", last:true}
+];
+let tourAt = 0;
+function showTour(i){
+  tourAt = i; const t = TOUR[i];
+  app.classList.remove("immersed"); closeSheets();
+  $("#tour").hidden = false;
+  $("#tourStep").textContent = `使い方ナビ ${i + 1} / ${TOUR.length}`;
+  $("#tourTitle").textContent = t.title; $("#tourText").textContent = t.text;
+  $("#tourZones").hidden = !t.zones;
+  if (t.zones) requestAnimationFrame(() => { $("#tourZones").style.bottom = ($(".tour-card").offsetHeight + 28) + "px"; });
+  const hl = $("#tourHl");
+  if (t.hl){ const r = document.querySelector(t.hl).getBoundingClientRect(), ar = app.getBoundingClientRect();
+    Object.assign(hl.style, {left:(r.left - ar.left - 4) + "px", top:(r.top - ar.top - 4) + "px", width:(r.width + 8) + "px", height:(r.height + 8) + "px"}); hl.hidden = false; }
+  else hl.hidden = true;
+  $("#tourNext").textContent = t.last ? "おすすめを開く" : "次へ";
+  $("#tourSkip").textContent = t.last ? "あとで" : "閉じる";
+}
+function endTour(openPresets){
+  $("#tour").hidden = true; store.set("aozora:toured", true);
+  if (openPresets){ openDock(); showPane("osusume"); }
+}
+$("#tourNext").onclick = () => { if (TOUR[tourAt].last) endTour(true); else showTour(tourAt + 1); };
+$("#tourSkip").onclick = () => endTour(false);
+$("#btnTour").onclick = () => showTour(0);
 
 /* 設定 */
 function syncSettings(){
@@ -1828,6 +1973,7 @@ function syncSettings(){
   document.querySelectorAll("#turns button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.turn === turn)));
   document.querySelectorAll("#modes button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.mode === S.mode)));
   document.querySelectorAll(".sw").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.themeKey === S.light || b.dataset.themeKey === S.dark)));
+  document.querySelectorAll("#papers button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.paper === S.paper)));
   document.querySelectorAll("#folioRow button").forEach(b => b.setAttribute("aria-pressed", String((b.dataset.folio === "on") === !!S.folio)));
   app.classList.toggle("folios", !!S.folio);
   document.querySelectorAll("#hintsRow button").forEach(b => b.setAttribute("aria-pressed", String((b.dataset.hints === "on") === !!S.hints)));
@@ -1837,30 +1983,20 @@ function syncSettings(){
   $("#rngContrast").value = S.contrast; $("#outContrast").textContent = S.contrast + "%";
 }
 let relayTimer;
-function changed(){ syncSettings(); store.set("aozora:settings", S); clearTimeout(relayTimer); relayTimer = setTimeout(() => layout(), 120); }
-$("#rngSize").oninput = e => { S.size = +e.target.value; changed(); };
-$("#rngLh").oninput = e => { S.lh = +e.target.value; changed(); };
-$("#rngChars").oninput = e => { S.chars = +e.target.value; changed(); };
-$("#rngMargin").oninput = e => { S.margin = +e.target.value; changed(); };
+function changed(fromPreset){ syncSettings(); store.set("aozora:settings", S); clearTimeout(relayTimer); relayTimer = setTimeout(() => layout(), 120); }
+const manual = () => { if (S.preset){ S.preset = null; renderPresets(); } };
+$("#rngSize").oninput = e => { S.size = +e.target.value; manual(); changed(); };
+$("#rngLh").oninput = e => { S.lh = +e.target.value; manual(); changed(); };
+$("#rngChars").oninput = e => { S.chars = +e.target.value; manual(); changed(); };
+$("#rngMargin").oninput = e => { S.margin = +e.target.value; manual(); changed(); };
 document.querySelectorAll("#faces button").forEach(b => b.onclick = () => {
   S.face = b.dataset.face; syncSettings(); store.set("aozora:settings", S);
   const go = () => layout();
   if (document.fonts && document.fonts.load) document.fonts.load(`${S.size}px "${S.face}"`, "夜の停車場《》、。").then(go, go); else go();
 });
+document.querySelectorAll("#papers button").forEach(b => b.onclick = () => { S.paper = b.dataset.paper; manual(); applyPaper(); syncSettings(); store.set("aozora:settings", S); });
 document.querySelectorAll("#folioRow button").forEach(b => b.onclick = () => { S.folio = b.dataset.folio === "on"; syncSettings(); store.set("aozora:settings", S); });
-// 文庫本に近づける：一行38字が今の画面にちょうど収まる文字の大きさにし、行間を文庫本の比率に寄せる
-$("#btnBunko").onclick = () => {
-  const cs = getComputedStyle(stage);
-  const my = parseFloat(stage.style.getPropertyValue("--my")) || 12;
-  const tuningPhone = app.classList.contains("tuning") && innerWidth < 760;  // 調整パネルを閉じたときの高さで計算する
-  const padB = tuningPhone ? 44 + my : parseFloat(cs.paddingBottom);
-  const availH = stage.clientHeight - parseFloat(cs.paddingTop) - padB;
-  const scale = measureEm() / S.size;                 // 端末の文字拡大の倍率
-  S.chars = 38; S.lh = 1.7; S.margin = 1.5;
-  S.size = Math.max(12, Math.floor((availH - availH / 39) / 38 / scale));
-  changed();
-  toast(`一行38字・行間1.7にしました（文字の大きさ ${S.size}px）。`);
-};
+
 document.querySelectorAll("#hintsRow button").forEach(b => b.onclick = () => { S.hints = b.dataset.hints === "on"; syncSettings(); store.set("aozora:settings", S); });
 document.querySelectorAll("#engines button").forEach(b => b.onclick = () => { S.engine = b.dataset.engine === "on"; changed(); });
 document.querySelectorAll("#hangs button").forEach(b => b.onclick = () => { S.hang = b.dataset.hang === "on"; changed(); });
@@ -1878,8 +2014,11 @@ document.querySelectorAll("#turns button").forEach(b => b.onclick = () => {
 new ResizeObserver(() => { clearTimeout(relayTimer); relayTimer = setTimeout(() => layout(), 150); }).observe(stage);
 
 syncSettings();
+applyPaper();
+renderPresets();
 const last = store.get("aozora:last", null);
 loadText(last || SAMPLE, false);
+if (!store.get("aozora:toured", false)) setTimeout(() => showTour(0), 600);
 </script>
 
 <script>
