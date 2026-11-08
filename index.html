@@ -206,6 +206,20 @@ details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
 .tag.cr{border-color:var(--accent);color:var(--accent)}
 .wk-msg{font-size:12px;line-height:1.7;color:var(--ink);background:color-mix(in srgb,var(--rule) 40%,transparent);border-radius:8px;padding:8px 10px}
 .wk-del{border:1px solid var(--rule)!important;padding:0 10px;font-size:12px;color:var(--ink-soft)}
+.toc{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+.toc button{width:100%;display:flex;justify-content:space-between;gap:10px;text-align:left;padding:8px 10px;border-radius:8px;font-family:var(--f-text);font-size:15px}
+.toc button:hover{background:color-mix(in srgb,var(--rule) 45%,transparent)}
+.toc button[aria-current="true"]{color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,transparent)}
+.toc .pg{font-family:var(--f-ui);font-size:12px;color:var(--ink-soft);font-variant-numeric:tabular-nums;white-space:nowrap}
+.toc .lv2{padding-left:1.4em}.toc .lv3{padding-left:2.6em}
+.today{border:1px solid var(--rule);border-radius:12px;padding:12px;display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:start}
+.today-v{writing-mode:vertical-rl;font-family:var(--f-text);font-size:15px;line-height:1.85;height:13em;max-width:11.5em;overflow:hidden;
+  -webkit-mask-image:linear-gradient(to left,#000 75%,transparent);mask-image:linear-gradient(to left,#000 75%,transparent);color:var(--ink)}
+.today-m{display:grid;gap:6px;align-content:start;min-width:0}
+.today-m b{font-family:var(--f-text);font-weight:600;font-size:17px;line-height:1.4}
+.today-m span{font-size:12px;color:var(--ink-soft)}
+.today-m button{justify-self:start;border:1px solid var(--accent)!important;color:var(--accent);padding:7px 12px;font-size:13px;margin-top:4px}
+@media (max-width:420px){.today{grid-template-columns:1fr}.today-v{height:10em;max-width:none;width:100%}}
 .find-empty{font-size:13px;color:var(--ink-soft);margin:4px 0}
 /* 柱とノンブル：読書中（帯を隠したとき）だけ、本のように頁の上に出す */
 .folio{position:absolute;left:0;right:0;bottom:100%;margin-bottom:calc(var(--my,12px) + 6px);display:flex;align-items:baseline;
@@ -312,7 +326,7 @@ details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
     <nav class="tools">
       <button id="btnFind" type="button">探す</button>
       <button id="btnView" type="button">表示</button>
-      <button id="btnMark" type="button">しおり</button>
+      <button id="btnMark" type="button">目次</button>
       <button id="btnInfo" type="button">情報</button>
     </nav>
   </header>
@@ -416,8 +430,11 @@ details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
     </div>
   </section>
 
-  <section class="sheet" id="sheetMark" hidden aria-label="しおり">
-    <h2>しおり <button class="x" type="button" data-close>閉じる</button></h2>
+  <section class="sheet" id="sheetMark" hidden aria-label="目次としおり">
+    <h2>目次としおり <button class="x" type="button" data-close>閉じる</button></h2>
+    <h3>目次</h3>
+    <ul class="toc" id="toc"></ul>
+    <h3>しおり</h3>
     <button type="button" class="bm-add" id="bmAdd">この頁にしおりを挟む</button>
     <h3>この作品のしおり</h3>
     <ul class="bm-list" id="bmList"></ul>
@@ -523,10 +540,11 @@ const SAMPLE = [
 ].join("\n");
 
 /* ---------- 版情報（GitHubに置くときに書き換わる） ---------- */
-const APP_VERSION = "9", APP_DATE = "2026-11-08";
+const APP_VERSION = "10", APP_DATE = "2026-11-08";
 const APP_NOTES = [
-  "ルビが親文字より長いところで、親文字が前後の字に重なって詰まって見える不具合を直しました（「檜（ひのき）の」「烏瓜（からすうり）の」など）",
-  "ルビを自前で配置するようにし、二字以上の親文字の間が不自然に広がらないようにしました"
+  "上の帯の「しおり」を「目次」にし、作品の見出しから章へ移動できるようにしました。しおりも同じ画面にあります",
+  "探す画面の一番上に「今日の一頁」を加えました。毎日ちがう作品の一節に出会えます",
+  "ことばの解説を約600語に増やしました。古い言葉に加えて、ラッコ・ケール・烏瓜・ハイカラ・カンテラのような、知っているようで知らない言葉や、草木・鳥・虫の名前、昔の暮らしの道具などです"
 ];
 
 /* ---------- 小道具 ---------- */
@@ -798,7 +816,10 @@ function annotateDoc(doc){
       // ルビのない二字以上の語
       if (DICT.re){
         const rubies = L.spans.filter(sp => sp.t === "ruby");
+        const KANA_RUN = /[ァ-ヴー]/;
         for (const m of str.matchAll(DICT.re)){
+          // カタカナ語は、前後もカタカナなら長い語の一部なので出さない（「セメント」の中の「マント」など）
+          if (KANA_RUN.test(m[0][0]) && (KANA_RUN.test(str[m.index - 1] || "") || KANA_RUN.test(str[m.index + m[0].length] || ""))) continue;
           const a = at[m.index], b = at[m.index + m[0].length - 1] + 1;
           if (rubies.some(r => r.s < b && a < r.e && !(r.s === a && r.e === b))) continue;
           let free = true; for (let k = a; k < b; k++) if (taken[k]) free = false;
@@ -1419,7 +1440,7 @@ async function renderFind(){
   const body = $("#findBody"), q = norm($("#q").value);
   if (!q){
     const books = (await shelf.all()).sort((a, b) => b.at - a.at);
-    body.innerHTML = `<h3>本棚</h3>` + (books.length ? books.map(b => `<div class="wk"><button type="button" class="wk-go" data-shelf="${esc(b.id)}">
+    body.innerHTML = `<h3>今日の一頁</h3><div id="today"><p class="find-empty">今日の一頁を選んでいます…</p></div><h3>本棚</h3>` + (books.length ? books.map(b => `<div class="wk"><button type="button" class="wk-go" data-shelf="${esc(b.id)}">
       <span class="wk-t">${esc(b.title)}</span><span class="wk-m">${esc(b.author)}<span class="tag">端末に保存済み</span></span></button>
       <button type="button" class="wk-del" data-del="${esc(b.id)}" aria-label="本棚から外す">外す</button></div>`).join("")
       : `<p class="find-empty">読んだ作品はここに並び、電波のない場所でも開けます。上の欄に作品名や作家名を入れて探してください。</p>`);
@@ -1427,6 +1448,7 @@ async function renderFind(){
     body.querySelectorAll("[data-shelf]").forEach(b => b.onclick = () => openShelf(b.dataset.shelf));
     body.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => { await shelf.del(b.dataset.del); renderFind(); });
     renderBrowse();
+    renderToday(books);
     return;
   }
   body.innerHTML = `<p class="find-empty">作品一覧を読み込んでいます…</p>`;
@@ -1447,6 +1469,38 @@ async function renderFind(){
     : `<p class="find-empty">見つかりませんでした。作品名の一部や、作家の名字だけでも探せます。</p>`;
   body.querySelectorAll(".wk-go[data-id]").forEach(b => b.onclick = () => openWork(+b.dataset.id, b.parentElement));
 }
+/* 今日の一頁：日ごとに、まだ本棚にない作品から一節を選んで見せる */
+async function renderToday(books){
+  const box = $("#today"); if (!box) return;
+  let d; try { d = await loadIndex(); } catch (e) { box.innerHTML = `<p class="find-empty">通信できる場所で開くと、今日の一頁が出ます。</p>`; return; }
+  const day = (() => { const t = new Date(); return t.getFullYear() * 1000 + Math.floor((t - new Date(t.getFullYear(), 0, 0)) / 864e5); })();
+  const owned = new Set((books || []).map(b => b.id));
+  let pick = store.get("aozora:today", null);
+  if (!pick || pick.day !== day){
+    const cands = d.w.filter(w => w[6] === 2 && w[12] >= 3 && w[12] <= 60 && !owned.has("w" + w[0]));
+    const w = cands[((day * 2654435761) >>> 0) % cands.length];
+    pick = {day, id:w[0], excerpt:""};
+    try {
+      const name = w[10].split("/")[1];
+      const res = await fetch(`${MIRROR}${w[10].split("/")[0]}/files/${name}/${name}.txt`);
+      if (res.ok){
+        const pd = parseAozora(decodeBytes(new Uint8Array(await res.arrayBuffer())));
+        const paras = pd.lines.filter(L => !L.heading && L.cells.length >= 60 && L.cells.length <= 240);
+        const L = paras.length ? paras[(day * 40503) % paras.length] : pd.lines.find(L => L.cells.length > 20);
+        if (L) pick.excerpt = L.cells.map(c => c.ch).join("").replace(/^[\u3000\s]+/, "");
+      }
+    } catch (e) {}
+    store.set("aozora:today", pick);
+  }
+  const w = d.w.find(x => x[0] === pick.id); if (!w || !$("#today")) return;
+  const ex = pick.excerpt ? (pick.excerpt.length > 150 ? pick.excerpt.slice(0, 150) + "……" : pick.excerpt) : "";
+  $("#today").innerHTML = `<div class="today" data-id="${w[0]}">${ex ? `<div class="today-v">${esc(ex)}</div>` : ""}
+    <div class="today-m"><b>${esc(w[1])}</b><span>${esc(names(w[7]))}・${fmtMin(w[12])}</span>
+    <span>${KANA_LABEL[w[4]]}${w[11] ? "・底本：" + esc(w[11]) : ""}</span>
+    <button type="button" id="todayGo">この作品を読む</button></div></div>`;
+  $("#todayGo").onclick = () => openWork(w[0], $("#today .today"));
+}
+
 /* 索引：作家／作品名／分類 */
 const ROWS = [["あ","あいうえお"],["か","かきくけこ"],["さ","さしすせそ"],["た","たちつてと"],["な","なにぬねの"],["は","はひふへほ"],["ま","まみむめも"],["や","やゆよ"],["ら","らりるれろ"],["わ","わをん"]];
 const BASE = {"ぁ":"あ","ぃ":"い","ぅ":"う","ぇ":"え","ぉ":"お","ゔ":"う","が":"か","ぎ":"き","ぐ":"く","げ":"け","ご":"こ","ざ":"さ","じ":"し","ず":"す","ぜ":"せ","ぞ":"そ","だ":"た","ぢ":"ち","っ":"つ","づ":"つ","で":"て","ど":"と","ば":"は","ぱ":"は","び":"ひ","ぴ":"ひ","ぶ":"ふ","ぷ":"ふ","べ":"へ","ぺ":"へ","ぼ":"ほ","ぽ":"ほ","ゃ":"や","ゅ":"ゆ","ょ":"よ","ゎ":"わ","ゐ":"い","ゑ":"え"};
@@ -1579,7 +1633,23 @@ function updateRibbon(){
   const btn = $("#bmAdd");
   if (btn) btn.textContent = on ? "この頁のしおりを外す" : "この頁にしおりを挟む";
 }
+function fillToc(){
+  const ul = $("#toc");
+  const heads = doc.lines.map((L, i) => [L, i]).filter(([L]) => L.heading);
+  if (!heads.length){ ul.innerHTML = `<li><p class="bm-empty">この作品には見出しがありません。</p></li>`; return; }
+  const items = heads.map(([L, i]) => {
+    const j = lineOfPos({pi:i, f:0}), pg = pageOfLine(j);
+    const text = L.cells.map(c => c.ch).join("").replace(/^[\u3000\s]+/, "");
+    const lv = L.heading === "h-l" ? 1 : L.heading === "h-m" ? 2 : 3;
+    return {text, pg, lv};
+  });
+  const top = Math.min(...items.map(x => x.lv));
+  let cur = -1; items.forEach((x, k) => { if (x.pg <= pageIdx) cur = k; });
+  ul.innerHTML = items.map((x, k) => `<li><button type="button" class="lv${x.lv - top + 1}" data-pg="${x.pg}" aria-current="${k === cur}"><span>${esc(x.text)}</span><span class="pg">${x.pg + 1}頁</span></button></li>`).join("");
+  ul.querySelectorAll("[data-pg]").forEach(b => b.onclick = () => { closeSheets(); show(+b.dataset.pg, 0); });
+}
 function fillMarks(){
+  fillToc();
   const m = marks().map((x, k) => ({...x, k, j:lineOfPos(x)})).sort((a, b) => a.j - b.j);
   const ul = $("#bmList");
   if (!m.length){ ul.innerHTML = `<li><p class="bm-empty">まだありません。読んでいる頁で上のボタンを押すと挟めます。</p></li>`; }
@@ -2013,7 +2083,7 @@ function applyPreset(id){
 const TOUR = [
   {title:"頁のめくり方", text:"本文の左を押すと次の頁、右を押すと前の頁へ進みます。指で横になぞってもめくれます。中央を押すと上下の帯が消えて、本を読むような画面になります。", zones:true},
   {title:"しおりと、ことばの手がかり", text:"本文の中央あたりを二回続けて押すと、その行にしおりを挟めます。点線の印のある言葉を押すと、色や昔の単位の手がかりが出ます。どの字でも長押しすると、旧字体などを調べられます。"},
-  {title:"上の帯のボタン", text:"「探す」で作品を探して読み始められます。「表示」で文字や紙の見え方を、「しおり」で挟んだ場所を、「情報」で作品の底本やこの案内を見られます。", hl:".bar.top .tools"},
+  {title:"上の帯のボタン", text:"「探す」で作品を探して読み始められます。「表示」で文字や紙の見え方を、「目次」で章への移動や挟んだしおりを、「情報」で作品の底本やこの案内を見られます。", hl:".bar.top .tools"},
   {title:"まずは、読む場面を選びましょう", text:"「表示」の「おすすめ」で読む場面を選ぶと、文字の大きさや配色がまとめて決まります。今から開いてみますか？", last:true}
 ];
 let tourAt = 0;
