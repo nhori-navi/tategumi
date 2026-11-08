@@ -60,7 +60,7 @@ body{background:var(--paper);color:var(--ink);font-family:var(--f-ui);overflow:h
 .work b{color:var(--ink);font-weight:500;margin-right:.6em}
 .tools{display:flex;gap:4px}
 button{font:inherit;color:inherit;background:none;border:1px solid transparent;border-radius:6px;cursor:pointer}
-.tools button{font-size:13px;padding:6px 10px}
+.tools button{font-size:13px;padding:6px 9px}
 .tools button:hover{border-color:var(--rule)}
 button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .pageno{font-variant-numeric:tabular-nums;min-width:5.5em}
@@ -255,6 +255,19 @@ details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
 .tour-card .btnrow button{border:1px solid var(--rule);padding:8px 14px}
 .tour-card .btnrow button.primary{border-color:var(--accent);color:var(--accent)}
 .tour-hl{position:absolute;border:2px solid #f4f6f4;border-radius:10px;pointer-events:none;box-shadow:0 0 0 4px rgba(244,246,244,.25)}
+/* 朗読 */
+.speakbar{position:absolute;left:0;right:0;bottom:0;z-index:7;min-height:52px;display:flex;flex-wrap:wrap;align-items:center;gap:6px;justify-content:center;
+  background:var(--veil);border-top:1px solid var(--rule);padding-block:6px calc(6px + env(safe-area-inset-bottom,0px));
+  padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px))}
+.speakbar button{border:1px solid var(--rule)!important;padding:7px 10px;font-size:13px}
+.speakbar .sp-main{border-color:var(--accent)!important;color:var(--accent);min-width:5em}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.sp-rate{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--ink-soft)}
+.sp-rate select{font:inherit;font-size:13px;color:var(--ink);background:var(--paper);border:1px solid var(--rule);border-radius:6px;padding:5px 4px}
+#app.speaking .bar.bottom{visibility:hidden}
+#app.speaking #stage{padding-bottom:calc(var(--spbar,60px) + var(--my,12px))}
+.speak-hl{position:absolute;top:-4px;bottom:-4px;border-radius:6px;pointer-events:none;background:color-mix(in srgb,var(--accent) 14%,transparent);z-index:0;transition:left .2s,width .2s}
+@media (prefers-reduced-motion:reduce){.speak-hl{transition:none}}
 /* しおり */
 .ribbon{position:absolute;top:-8px;right:calc(-.55 * var(--mx,20px) - 5px);width:10px;height:40px;background:var(--accent);pointer-events:none;z-index:2;
   clip-path:polygon(0 0,100% 0,100% 100%,50% 78%,0 100%)}
@@ -332,6 +345,7 @@ details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
       <button id="btnFind" type="button">探す</button>
       <button id="btnView" type="button">表示</button>
       <button id="btnMark" type="button">目次</button>
+      <button id="btnSpeak" type="button">朗読</button>
       <button id="btnInfo" type="button">情報</button>
     </nav>
   </header>
@@ -491,6 +505,15 @@ details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
       </div>
     </div>
   </div>
+  <div class="speakbar" id="speakBar" hidden role="region" aria-label="朗読">
+    <button type="button" id="spPrev" aria-label="前の文へ">前へ</button>
+    <button type="button" id="spPlay" class="sp-main">一時停止</button>
+    <button type="button" id="spNext" aria-label="次の文へ">次へ</button>
+    <label class="sp-rate"><span class="sr">速さ</span>
+      <select id="spRate"><option value="0.8">ゆっくり</option><option value="1" selected>ふつう</option><option value="1.25">少し速く</option><option value="1.5">速く</option></select>
+    </label>
+    <button type="button" id="spStop">終わる</button>
+  </div>
   <div class="toast" id="toast" hidden role="status"></div>
   <div class="drop" id="drop" hidden>ここに置くと開きます（.txt / .zip）</div>
   <input id="file" type="file" accept=".txt,.zip,text/plain,application/zip" hidden>
@@ -545,9 +568,11 @@ const SAMPLE = [
 ].join("\n");
 
 /* ---------- 版情報（GitHubに置くときに書き換わる） ---------- */
-const APP_VERSION = "13", APP_DATE = "2026-11-08";
+const APP_VERSION = "14", APP_DATE = "2026-11-08";
 const APP_NOTES = [
-  "「情報」の「この作品の手がかりと注」を、種類ごとに畳めるようにしました。はじめは畳んだ状態で、押すと開きます"
+  "上の帯に「朗読」を加えました。今の頁から、ルビの読みどおりに読み上げます",
+  "読み上げている行をうっすら光らせ、頁の終わりまで来ると自動で次の頁へ送ります",
+  "朗読中は下に操作の帯が出て、一時停止・前の文・次の文・速さの切り替えができます。読んでいる間は画面が消えないようにします"
 ];
 
 /* ---------- 小道具 ---------- */
@@ -917,7 +942,7 @@ const ASCII_WORD = /[A-Za-z0-9]/;
 const ctx2d = document.createElement("canvas").getContext("2d");
 let measureFont = "100px serif";
 const wCache = new Map();
-const ENG = {stats:{hang:0, in:0, out:0}};
+const ENG = {stats:{hang:0, in:0, out:0}, breaks:{}};
 
 function emWidth(ch){
   const cp = ch.codePointAt(0);
@@ -960,14 +985,14 @@ function buildUnits(L){
       const mstyle = (mA || mB) ? ` style="margin-inline:${mA}em ${mB}em"` : "";
       u = {k:"ruby", html:`<span class="rb"${mstyle}>${run(sp.s, sp.e)}<span class="rt">${esc(sp.rt)}</span></span>`,
            w:bw + mA + mB, n:sp.e - sp.s, a:CL[cells[sp.s].ch], z:CL[cells[sp.e - 1].ch]};
-      u.d = deco[q]; q = sp.e;
+      u.d = deco[q]; u.c = q; q = sp.e;
     } else if (tcyAt.has(q)){
       const sp = tcyAt.get(q);
-      u = {k:"tcy", html:run(sp.s, sp.e), w:1, n:1}; u.d = deco[q]; q = sp.e;
+      u = {k:"tcy", html:run(sp.s, sp.e), w:1, n:1}; u.d = deco[q]; u.c = q; q = sp.e;
     } else {
       const c = cells[q];
       const cls = c.g ? undefined : CL[c.ch];
-      u = {k:"char", html:cellHtml(q), ch:c.g ? null : c.ch, w:c.g ? 1 : emWidth(c.ch), n:1, a:cls, z:cls}; u.d = deco[q]; q++;
+      u = {k:"char", html:cellHtml(q), ch:c.g ? null : c.ch, w:c.g ? 1 : emWidth(c.ch), n:1, a:cls, z:cls}; u.d = deco[q]; u.c = q; q++;
     }
     units.push(u);
   }
@@ -1072,6 +1097,7 @@ function renderParaE(L, N, opt){
   const units = buildUnits(L);
   const pw = units.map((u, k) => pairWidth(units, k));
   const lns = breakLines(units, pw, lenF, lenW);
+  if (opt.pi != null) ENG.breaks[opt.pi] = lns.map(ln => units[ln.i] ? units[ln.i].c : 0);   // 読み上げで行を光らせるため
   let h = head;
   lns.forEach((ln, idx) => {
     const Lmax = idx === 0 ? lenF : lenW;
@@ -1090,7 +1116,8 @@ function renderDocEngine(doc, N){
   let h = renderParaE(plainL(""), N) + renderParaE(plainL(doc.title), N, {cls:"e-title", scale:1.75, ind:{f:1.5, w:1.5}});
   for (const s of doc.sub) h += renderParaE(plainL(s), N, {ind:{f:4.5, w:4.5}});
   h += renderParaE(plainL(""), N) + renderParaE(plainL(doc.author), N, {cls:"e-author", scale:1.1, alignEnd:2});
-  doc.lines.forEach((L, idx) => { h += renderParaE(L, N, idx === 0 ? {brk:true} : null).replace("<p ", `<p data-i="${idx}" `); });
+  ENG.breaks = {};
+  doc.lines.forEach((L, idx) => { h += renderParaE(L, N, idx === 0 ? {brk:true, pi:idx} : {pi:idx}).replace("<p ", `<p data-i="${idx}" `); });
   if (doc.colophon.length){
     h += `<div class="colophon">` + renderParaE(plainL("底本・入力について"), N, {cls:"c-head", scale:0.82, brk:true});
     for (const s of doc.colophon) h += renderParaE(plainL(s), N, {scale:0.82});
@@ -1303,6 +1330,7 @@ function updateFolio(){
   $("#nombre").textContent = pages.length ? String(pageIdx + 1) : "";
 }
 function updateStatus(){
+  if (typeof SP !== "undefined" && SP.on) setTimeout(drawSpeakHL, 0);
   updateFolio();
   $("#pageNo").textContent = `${pageIdx + 1} / ${pages.length}`;
   $("#trackFill").style.width = (pages.length > 1 ? pageIdx / (pages.length - 1) * 100 : 100) + "%";
@@ -1347,6 +1375,7 @@ const prev = () => show(pageIdx - 1, -1);
 
 /* ---------- 作品の読み込み ---------- */
 function loadText(text, persist){
+  if (typeof SP !== "undefined" && SP.on) stopSpeak();
   doc = parseAozora(text);
   annotateDoc(doc);
   docKey = doc.title + "／" + doc.author;
@@ -1680,6 +1709,134 @@ function toggleMark(){
   }
   saveMarks(all); fillMarks();
 }
+
+/* ---------- 朗読：ルビの読みで読み上げ、読んでいる行を光らせて頁を送る ---------- */
+const SP = {on:false, playing:false, list:[], at:0, voice:null, rate:1, lock:null, hl:[]};
+const synth = window.speechSynthesis;
+function jaVoice(){
+  if (!synth) return null;
+  const vs = synth.getVoices().filter(v => /^ja/i.test(v.lang));
+  return vs.find(v => /google/i.test(v.name)) || vs.find(v => v.localService) || vs[0] || null;
+}
+// 踊り字をくり返しの字に直す（読み上げ用）
+function expandOdoriji(t){
+  const dak = c => ({"か":"が","き":"ぎ","く":"ぐ","け":"げ","こ":"ご","さ":"ざ","し":"じ","す":"ず","せ":"ぜ","そ":"ぞ","た":"だ","ち":"ぢ","つ":"づ","て":"で","と":"ど","は":"ば","ひ":"び","ふ":"ぶ","へ":"べ","ほ":"ぼ"}[c] || c);
+  return t.replace(/(..)〳〵/g, "$1$1").replace(/(.)(.)〴〵/g, (m, a, b) => a + b + dak(a) + b)
+          .replace(/(.)ゝ/g, "$1$1").replace(/(.)ゞ/g, (m, a) => a + dak(a));
+}
+function buildSpeech(){
+  const list = [];
+  doc.lines.forEach((L, pi) => {
+    if (!L.cells.length) return;
+    const ruby = new Map(), word = new Map();
+    for (const sp of L.spans){
+      if (sp.t === "ruby") ruby.set(sp.s, sp);
+      else if (sp.t === "kt" && / wd/.test(sp.c)){ const k = doc.kotoba[+sp.c.match(/kt-(\d+)/)[1]]; if (k && k.base === L.cells.slice(sp.s, sp.e).map(c => c.ch).join("") && [...k.base].length >= 2) word.set(sp.s, {e:sp.e, yomi:k.yomi}); }
+    }
+    let text = "", start = 0, q = 0;
+    const push = end => { const t = expandOdoriji(text).replace(/[\s　]/g, ""); if (t.replace(/[「」『』（）〔〕、。・…―─]/g, "")) list.push({pi, a:start, b:end, text:t}); text = ""; start = end; };
+    while (q < L.cells.length){
+      if (ruby.has(q)){ const sp = ruby.get(q); text += sp.rt; q = sp.e; }
+      else if (word.has(q)){ const w = word.get(q); text += w.yomi; q = w.e; }
+      else { text += L.cells[q].ch; q++; }
+      const c = L.cells[q - 1].ch, nx = L.cells[q] ? L.cells[q].ch : "";
+      const endSentence = /[。！？!?]/.test(c) && !/[」』）。！？]/.test(nx);
+      const closeAfter = /[」』）]/.test(c) && /[。！？]/.test(L.cells[q - 2] ? L.cells[q - 2].ch : "");
+      if (endSentence || closeAfter || (text.length > 90 && /[、，]/.test(c))) push(q);
+    }
+    if (text) push(L.cells.length);
+  });
+  return list;
+}
+function paraLines(){
+  const m = new Map();
+  lines.forEach((L, j) => { if (L.pi < 0) return; const r = m.get(L.pi); if (r) r[1] = j; else m.set(L.pi, [j, j]); });
+  return m;
+}
+function sentenceLines(it){
+  const r = paraLines().get(it.pi); if (!r) return [];
+  const n = r[1] - r[0] + 1, br = ENG.breaks[it.pi];
+  let k1, k2;
+  if (S.engine && br && br.length === n){
+    k1 = 0; k2 = 0;
+    br.forEach((c, k) => { if (c <= it.a) k1 = k; if (c <= it.b - 1) k2 = k; });
+  } else {
+    const N = doc.lines[it.pi].cells.length || 1;
+    k1 = Math.min(n - 1, Math.floor(it.a / N * n)); k2 = Math.min(n - 1, Math.floor((it.b - 1) / N * n));
+  }
+  const out = []; for (let k = k1; k <= k2; k++) out.push(r[0] + k);
+  return out;
+}
+function drawSpeakHL(){
+  SP.hl.forEach(e => e.remove()); SP.hl = [];
+  if (!SP.on || !SP.list[SP.at]) return;
+  const js = sentenceLines(SP.list[SP.at]);
+  const p = pages[pageIdx]; if (!p) return;
+  const last = pages[pageIdx + 1] ? pages[pageIdx + 1].first : lines.length;
+  const fr = frame.getBoundingClientRect(), cr = content.getBoundingClientRect();
+  for (const j of js){
+    if (j < p.first || j >= last) continue;
+    const L = lines[j], half = L.fs * S.lh / 2;
+    const el = document.createElement("div"); el.className = "speak-hl";
+    el.style.left = (cr.right - L.c - half - fr.left) + "px"; el.style.width = (half * 2) + "px";
+    frame.insertBefore(el, frame.firstChild); SP.hl.push(el);
+  }
+}
+function followSpeech(){
+  const js = sentenceLines(SP.list[SP.at]); if (!js.length) return;
+  const pg = pageOfLine(js[0]);
+  if (pg !== pageIdx) show(pg, pg > pageIdx ? 1 : -1);
+  drawSpeakHL();
+}
+function speakAt(i){
+  if (!synth) return;
+  SP.at = Math.max(0, Math.min(SP.list.length - 1, i));
+  synth.cancel();
+  const it = SP.list[SP.at]; if (!it) return stopSpeak();
+  followSpeech();
+  const u = new SpeechSynthesisUtterance(it.text);
+  u.lang = "ja-JP"; u.rate = SP.rate; if (SP.voice) u.voice = SP.voice;
+  const token = SP.token = Math.random();
+  u.onend = () => { if (SP.token !== token || !SP.playing) return; if (SP.at + 1 < SP.list.length) speakAt(SP.at + 1); else { stopSpeak(); toast("最後まで読み終えました。"); } };
+  u.onerror = e => { if (SP.token === token && e.error !== "interrupted" && e.error !== "canceled"){ SP.playing = false; syncSpeakUI(); } };
+  SP.playing = true; syncSpeakUI();
+  synth.speak(u);
+}
+function syncSpeakUI(){
+  $("#spPlay").textContent = SP.playing ? "一時停止" : "再生";
+  app.classList.toggle("speaking", SP.on);
+  $("#speakBar").hidden = !SP.on;
+  if (SP.on) requestAnimationFrame(() => app.style.setProperty("--spbar", $("#speakBar").offsetHeight + "px"));
+}
+async function startSpeak(){
+  if (!synth || !window.SpeechSynthesisUtterance){ toast("この端末のブラウザは読み上げに対応していません。"); return; }
+  SP.voice = jaVoice();
+  if (!SP.voice && synth.getVoices().length){ toast("この端末には日本語の読み上げ音声が見つかりません。端末の設定で日本語の音声を入れると使えます。"); return; }
+  SP.list = buildSpeech();
+  if (!SP.list.length){ toast("読み上げる本文がありません。"); return; }
+  // 今の頁の最初の行から始める
+  const first = pages[pageIdx] ? pages[pageIdx].first : 0;
+  let start = SP.list.findIndex(it => { const js = sentenceLines(it); return js.length && js[js.length - 1] >= first; });
+  if (start < 0) start = 0;
+  SP.on = true; SP.rate = +$("#spRate").value;
+  closeSheets(); app.classList.remove("immersed");
+  try { SP.lock = navigator.wakeLock ? await navigator.wakeLock.request("screen") : null; } catch (e) { SP.lock = null; }
+  syncSpeakUI(); speakAt(start);
+}
+function stopSpeak(){
+  SP.on = false; SP.playing = false; SP.token = 0;
+  if (synth) synth.cancel();
+  if (SP.lock){ SP.lock.release().catch(() => {}); SP.lock = null; }
+  drawSpeakHL(); syncSpeakUI();
+}
+$("#btnSpeak").onclick = () => { SP.on ? stopSpeak() : startSpeak(); };
+$("#spStop").onclick = stopSpeak;
+$("#spPlay").onclick = () => { if (SP.playing){ SP.playing = false; SP.token = 0; synth.cancel(); syncSpeakUI(); } else speakAt(SP.at); };
+$("#spPrev").onclick = () => speakAt(SP.at - 1);
+$("#spNext").onclick = () => speakAt(SP.at + 1);
+$("#spRate").onchange = e => { SP.rate = +e.target.value; if (SP.playing) speakAt(SP.at); };
+if (synth && synth.addEventListener) synth.addEventListener("voiceschanged", () => { if (!SP.voice) SP.voice = jaVoice(); });
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && SP.on && SP.lock === null && navigator.wakeLock) navigator.wakeLock.request("screen").then(l => SP.lock = l, () => {}); });
 
 /* ---------- 情報パネル ---------- */
 function fillInfo(){
@@ -2086,7 +2243,7 @@ function applyPreset(id){
 const TOUR = [
   {title:"頁のめくり方", text:"本文の左を押すと次の頁、右を押すと前の頁へ進みます。指で横になぞってもめくれます。中央を押すと上下の帯が消えて、本を読むような画面になります。", zones:true},
   {title:"しおりと、ことばの手がかり", text:"本文の中央あたりを二回続けて押すと、その行にしおりを挟めます。点線の印のある言葉を押すと、色や昔の単位の手がかりが出ます。どの字でも長押しすると、旧字体などを調べられます。"},
-  {title:"上の帯のボタン", text:"「探す」で作品を探して読み始められます。「表示」で文字や紙の見え方を、「目次」で章への移動や挟んだしおりを、「情報」で作品の底本やこの案内を見られます。", hl:".bar.top .tools"},
+  {title:"上の帯のボタン", text:"「探す」で作品を探して読み始められます。「表示」で文字や紙の見え方を、「目次」で章への移動や挟んだしおりを、「朗読」で今の頁からの読み上げを、「情報」で作品の底本やこの案内を見られます。", hl:".bar.top .tools"},
   {title:"まずは、読む場面を選びましょう", text:"「表示」の「おすすめ」で読む場面を選ぶと、文字の大きさや配色がまとめて決まります。今から開いてみますか？", last:true}
 ];
 let tourAt = 0;
