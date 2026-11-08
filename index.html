@@ -240,6 +240,7 @@ details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
 .flash{position:absolute;top:-6px;bottom:-6px;background:var(--accent);opacity:0;pointer-events:none;border-radius:4px;z-index:1}
 .hints .kt.nt{text-decoration:none;position:relative}
 .hints .kt.nt::before{content:"＊";position:absolute;top:-.35em;right:-.95em;font-size:.55em;line-height:1;color:var(--accent);font-family:var(--f-ui)}
+.hints .kt.wd{text-decoration-color:color-mix(in srgb,var(--accent) 38%,transparent)}
 .hints .kt{text-decoration:underline dotted;text-decoration-color:color-mix(in srgb,var(--accent) 70%,transparent);
   text-underline-position:left;text-decoration-thickness:1.5px;text-underline-offset:.18em;cursor:pointer}
 .card{position:absolute;z-index:12;width:min(300px,calc(100% - 32px));background:var(--paper);color:var(--ink);
@@ -252,6 +253,8 @@ details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
 .card .k-sw{height:56px;border-radius:8px;border:1px solid var(--rule);margin:8px 0 2px}
 .card .k-big{font-family:var(--f-text);font-size:40px;line-height:1.2;display:flex;align-items:center;gap:14px}
 .card .k-big span{font-size:16px;color:var(--ink-soft)}
+.card .k-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:10px;padding-top:8px;border-top:1px solid var(--rule);font-size:11px;color:var(--ink-soft)}
+.card .k-foot a{color:var(--accent);white-space:nowrap}
 .bm-add{width:100%;padding:10px;border:1px solid var(--accent)!important;color:var(--accent);font-size:14px}
 .bm-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}
 .bm-list li{display:flex;align-items:stretch;gap:6px}
@@ -518,12 +521,12 @@ const SAMPLE = [
 ].join("\n");
 
 /* ---------- 版情報（GitHubに置くときに書き換わる） ---------- */
-const APP_VERSION = "7", APP_DATE = "2026-11-08";
+const APP_VERSION = "8", APP_DATE = "2026-11-08";
 const APP_NOTES = [
-  "読む場面を選ぶだけで設定がまとまる「おすすめ」を加えました（大きめでゆったり・文庫本の雰囲気・寝る前に・電車で片手で・机でじっくり）",
-  "初めて開いたときの「使い方ナビ」を加えました。「情報」からいつでも見られます",
-  "紙の質感（上質紙・書籍用紙・和紙・わら半紙）を選べるようにしました",
-  "一行38字にする「文庫本に近づける」は、文字が小さくなりすぎるため「文庫本の雰囲気」に置き換えました"
+  "よく出る言葉約400語に、意味の解説（AIが作成）を付けました。点線の印のある言葉を押すと出ます",
+  "手がかりのカードから「誤りを知らせる」で、運営に知らせられるようにしました",
+  "作品ごとの読む時間の目安を表示し、索引の「読む時間」から探せるようにしました",
+  "おすすめの「大きめでゆったり」「電車で片手で」「机でじっくり」は、端末の設定にかかわらず明るい配色にしました"
 ];
 
 /* ---------- 小道具 ---------- */
@@ -739,6 +742,24 @@ function fmtQty(v, u){
   if (u === "g") return v >= 1000 ? `約${fmtNum(v / 1000)}キログラム` : `約${fmtNum(v)}グラム`;
   return v >= 1 ? `約${fmtNum(v)}リットル` : `約${fmtNum(v * 1000)}ミリリットル`;
 }
+/* ことば辞書（AIが作成した解説）：親文字と読みの組で引く */
+let DICT = null;
+const dictReady = fetch("kotoba.json").then(r => r.ok ? r.json() : []).then(rows => {
+  const byRuby = new Map(), bare = [];
+  rows.forEach(([base, yomi, word, wyomi, mean, rubyOnly]) => {
+    const e = {base, yomi, word, wyomi, mean};
+    byRuby.set(base + "|" + yomi, e);
+    if ([...base].length >= 2 && !rubyOnly) bare.push(e);   // 読み違えやすい語は、ルビがあるときだけ
+  });
+  bare.sort((a, b) => b.base.length - a.base.length);
+  const bareMap = new Map(); bare.forEach(e => { if (!bareMap.has(e.base)) bareMap.set(e.base, e); });
+  DICT = {byRuby, bareMap, re: bare.length ? new RegExp([...bareMap.keys()].map(reEsc).join("|"), "g") : null};
+  if (doc){                                          // 読み込みが本文より遅れたら、手がかりを付け直す
+    doc.lines.forEach(L => { L.spans = L.spans.filter(sp => sp.t !== "kt"); });
+    annotateDoc(doc); renderedSig = ""; layout(); fillHints();
+  }
+}).catch(() => {});
+
 function annotateDoc(doc){
   doc.kotoba = [];
   doc.report.kotoba = 0;
@@ -760,6 +781,36 @@ function annotateDoc(doc){
       L.spans.push({t:"kt", s:a, e:b, c:`kt kt-${id}`});
       doc.report.kotoba++;
     };
+    if (DICT){
+      // ルビの付いた語
+      for (const sp of L.spans){
+        if (sp.t !== "ruby") continue;
+        const base = L.cells.slice(sp.s, sp.e).map(c => c.ch).join("");
+        const e = DICT.byRuby.get(base + "|" + sp.rt);
+        if (!e) continue;
+        let free = true; for (let k = sp.s; k < sp.e; k++) if (taken[k]) free = false;
+        if (!free) continue;
+        for (let k = sp.s; k < sp.e; k++) taken[k] = 1;
+        const id = doc.kotoba.push({kind:"word", text:base, ...e}) - 1;
+        L.spans.push({t:"kt", s:sp.s, e:sp.e, c:`kt kt-${id} wd`});
+        doc.report.kotoba++;
+      }
+      // ルビのない二字以上の語
+      if (DICT.re){
+        const rubies = L.spans.filter(sp => sp.t === "ruby");
+        for (const m of str.matchAll(DICT.re)){
+          const a = at[m.index], b = at[m.index + m[0].length - 1] + 1;
+          if (rubies.some(r => r.s < b && a < r.e && !(r.s === a && r.e === b))) continue;
+          let free = true; for (let k = a; k < b; k++) if (taken[k]) free = false;
+          if (!free) continue;
+          for (let k = a; k < b; k++) taken[k] = 1;
+          const e = DICT.bareMap.get(m[0]);
+          const id = doc.kotoba.push({kind:"word", text:m[0], ...e}) - 1;
+          L.spans.push({t:"kt", s:a, e:b, c:`kt kt-${id} wd`});
+          doc.report.kotoba++;
+        }
+      }
+    }
     for (const m of str.matchAll(RE_COLOR)) add(m, {kind:"color", ...COLORS.get(m[0])});
     for (const m of str.matchAll(RE_UNIT)){
       if (m[0] === "一寸") continue;                 // 「ちょっと」と読むことが多い
@@ -1352,10 +1403,13 @@ function loadIndex(){
     return (IDX = d);
   }).catch(e => { idxLoading = null; throw e; }));
 }
+const fmtMin = m => m < 60 ? `約${m}分` : `約${Math.floor(m / 60)}時間${m % 60 >= 30 ? "半" : ""}`;
+const TIMES = [["5分以内", m => m && m <= 5], ["15分以内", m => m > 5 && m <= 15], ["30分以内", m => m > 15 && m <= 30], ["1時間以内", m => m > 30 && m <= 60], ["1時間以上", m => m > 60]];
 const names = (list) => list.map(i => IDX.p[i][1]).join("・");
 function workRow(w){
   const tags = [`<span class="tag">${KANA_LABEL[w[4]]}</span>`];
   if (/^K/.test(w[5])) tags.push(`<span class="tag">児童</span>`);
+  if (w[12]) tags.push(`<span class="tag">${fmtMin(w[12])}</span>`);
   if (w[6] & 1) tags.push(`<span class="tag cr">著作権あり</span>`);
   else if (!(w[6] & 2)) tags.push(`<span class="tag">ファイルから</span>`);
   const by = names(w[7]) + (w[8].length ? `（${names(w[8])}）` : "");
@@ -1407,7 +1461,7 @@ const GENRES = [
   ["社会", w => /^3/.test(w[5])], ["自然科学", w => /^4/.test(w[5])], ["技術・産業", w => /^[56]/.test(w[5])],
   ["芸術", w => /^7/.test(w[5])], ["言語", w => /^8/.test(w[5])]
 ];
-let browse = {mode:"author", path:[]};
+let browse = {mode:"time", path:[]};
 const byYomi = (a, b) => a[2].localeCompare(b[2], "ja");
 function listHtml(works, limit){
   return works.slice(0, limit).map(workRow).join("") + (works.length > limit ? `<button type="button" class="more" data-more="${limit + 100}">さらに表示（残り ${(works.length - limit).toLocaleString()} 件）</button>` : "");
@@ -1416,7 +1470,7 @@ async function renderBrowse(limit = 100){
   const box = $("#browse"); if (!box) return;
   let d;
   try { d = await loadIndex(); } catch (e) { box.innerHTML = `<p class="find-empty">作品一覧を読み込めませんでした。通信できる場所でもう一度開いてください。</p>`; return; }
-  const seg = `<div class="seg">${[["author","作家"],["title","作品名"],["genre","分類"]].map(([m, l]) => `<button type="button" data-mode="${m}" aria-pressed="${browse.mode === m}">${l}</button>`).join("")}</div>`;
+  const seg = `<div class="seg">${[["time","読む時間"],["author","作家"],["title","作品名"],["genre","分類"]].map(([m, l]) => `<button type="button" data-mode="${m}" aria-pressed="${browse.mode === m}">${l}</button>`).join("")}</div>`;
   const avail = d.w.filter(w => !(w[6] & 1));
   let html = seg, works = null;
   const crumb = label => `<div class="crumb"><button type="button" data-back>戻る</button><span>${esc(label)}</span></div>`;
@@ -1443,6 +1497,17 @@ async function renderBrowse(limit = 100){
     } else {
       works = avail.filter(w => head(w[2]) === b).sort(byYomi);
       html += crumb(`作品名・「${b}」で始まる（${works.length.toLocaleString()}作品）`);
+    }
+  } else if (browse.mode === "time"){
+    if (a == null){
+      html += TIMES.map(([l, f], i) => `<button type="button" class="au" data-go="${i}"><span>${l}</span><span>${avail.filter(w => f(w[12])).length.toLocaleString()}作品</span></button>`).join("");
+      html += `<p class="find-empty">1分あたり500字として計算した目安です。</p>`;
+    } else {
+      // 同じ時間の中では、毎回ちがう作品に出会えるよう並びを日替わりにする
+      const day = Math.floor(Date.now() / 864e5);
+      const mix = w => ((w[0] * 2654435761 + day * 40503) >>> 0) % 100000;
+      works = avail.filter(w => w[6] & 2 && TIMES[+a][1](w[12])).sort((x, y) => mix(x) - mix(y));
+      html += crumb(`${TIMES[+a][0]}で読める作品（${works.length.toLocaleString()}作品・日替わりの並び）`);
     }
   } else {
     if (a == null){
@@ -1578,7 +1643,7 @@ function fillVersion(){
   rows.push(["この版の変更", APP_NOTES.map(esc).join("<br>")]);
   $("#infoVersion").innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("");
 }
-const HINT_GROUPS = [["note", "入力者の注"], ["color", "伝統色"], ["unit", "昔の単位"], ["time", "昔の時刻"]];
+const HINT_GROUPS = [["word", "ことば"], ["note", "入力者の注"], ["color", "伝統色"], ["unit", "昔の単位"], ["time", "昔の時刻"]];
 function fillHints(){
   const box = $("#infoHints");
   const groups = HINT_GROUPS.map(([kind, label]) => {
@@ -1692,7 +1757,21 @@ function markAtX(clientX){
 const card = document.createElement("div");
 card.className = "card"; card.hidden = true; card.setAttribute("role", "dialog");
 app.appendChild(card);
+const REPORT_BASE = "https://github.com/nhori-navi/tategumi/issues/new";
+function reportLink(k){
+  const title = `解説の誤り：${k.word || k.text}`;
+  const body = [`作品：${doc ? doc.title + "（" + doc.author + "）" : ""}`, `語：${k.text}${k.wyomi ? "（" + k.wyomi + "）" : ""}`,
+    `今の解説：${(k.mean || k.name || k.note || "").slice(0, 200)}`, "", "気づいたこと："].join("\n");
+  return `${REPORT_BASE}?title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`;
+}
 function cardHtml(k){
+  const inner = cardInner(k); if (!inner) return "";
+  const who = k.kind === "word" ? "AIが作成した解説です。" : k.kind === "note" ? "青空文庫の入力者による注です。" : "縦組が用意した手がかりです。";
+  return inner + `<div class="k-foot"><span>${who}</span><a href="${reportLink(k)}" target="_blank" rel="noopener">誤りを知らせる</a></div>`;
+}
+function cardInner(k){
+  if (k.kind === "word") return `<div class="k-kind">ことば</div><div class="k-word">${esc(k.word)}<span class="k-yomi">${esc(k.wyomi)}</span></div>
+    <div class="k-sub" style="color:var(--ink)">${esc(k.mean)}</div>`;
   if (k.kind === "color") return `<div class="k-kind">伝統色</div><div class="k-word">${esc(k.name)}<span class="k-yomi">${esc(k.yomi)}</span></div>
     <div class="k-sw" style="background:${k.hex}"></div><div class="k-sub">色合いの目安です。資料によって少しずつ違います。</div>`;
   if (k.kind === "unit") return `<div class="k-kind">昔の単位（${k.kind2 || UNITS[k.unit].kind}）</div><div class="k-word">${esc(k.text)}</div>
@@ -1907,15 +1986,15 @@ function applyPaper(){
 /* ---------- おすすめの設定 ---------- */
 const PRESETS = [
   {id:"yuttari", name:"大きめでゆったり", desc:"文字を大きく、行間を広く。目にやさしい設定",
-   set:{size:24, lh:2.0, chars:32, margin:1.5, face:"BIZ UDMincho", contrast:100, mode:"auto", light:"shiro", paper:"joshitsu", turn:"fade"}},
+   set:{size:24, lh:2.0, chars:32, margin:1.5, face:"BIZ UDMincho", contrast:100, mode:"light", light:"shiro", paper:"joshitsu", turn:"fade"}},
   {id:"bunko", name:"文庫本の雰囲気", desc:"読みやすい大きさのまま、行間と余白、紙を文庫本に寄せる",
    set:{size:20, lh:1.75, chars:40, margin:1.75, face:"Shippori Mincho", contrast:100, mode:"light", light:"kinari", paper:"shoseki", turn:"fade"}},
   {id:"nemae", name:"寝る前に", desc:"暗い灯りの色で、文字の濃さを控えめに。めくりはふわっと",
    set:{size:21, lh:1.9, chars:36, margin:1.5, face:"Shippori Mincho", contrast:80, mode:"dark", dark:"akari", paper:"washi", turn:"fade"}},
   {id:"densha", name:"電車で片手で", desc:"文字は大きめ。指でなぞって流れるスクロール",
-   set:{size:22, lh:1.8, chars:34, margin:1.0, face:"Shippori Mincho", contrast:100, mode:"auto", paper:"joshitsu", turn:"scroll"}},
+   set:{size:22, lh:1.8, chars:34, margin:1.0, face:"Shippori Mincho", contrast:100, mode:"light", light:"shiro", paper:"joshitsu", turn:"scroll"}},
   {id:"tsukue", name:"机でじっくり", desc:"PCやタブレット向け。一行を長めに、余白を広く",
-   set:{size:21, lh:1.85, chars:42, margin:2.25, face:"Noto Serif JP", contrast:100, mode:"auto", light:"aozora", paper:"shoseki", turn:"slide"}}
+   set:{size:21, lh:1.85, chars:42, margin:2.25, face:"Noto Serif JP", contrast:100, mode:"light", light:"aozora", paper:"shoseki", turn:"slide"}}
 ];
 function renderPresets(){
   $("#presets").innerHTML = PRESETS.map(p => `<button type="button" class="preset" data-preset="${p.id}" aria-pressed="${S.preset === p.id}"><b>${p.name}</b><span>${p.desc}</span></button>`).join("");
