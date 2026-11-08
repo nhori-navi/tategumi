@@ -2,7 +2,7 @@
 // 更新するときは VERSION の数字を上げる
 // 同じアドレス（nhori-navi.github.io）のほかのアプリとキャッシュの置き場を共有しているので、
 // 消すのは "tategumi" で始まるものだけにする
-const VERSION = "tategumi-v11";
+const VERSION = "tategumi-v12";
 const SHELL = ["./", "index.html", "manifest.webmanifest",
   "icons/icon-192.png", "icons/icon-512.png", "icons/maskable-512.png", "icons/apple-touch-icon.png"];
 const RUNTIME = "tategumi-runtime";
@@ -22,7 +22,7 @@ self.addEventListener("fetch", e => {
   const url = new URL(req.url);
   // 画面そのもの：通信できれば最新を、できなければ保存しておいたものを
   if (req.mode === "navigate") {
-    e.respondWith(fetch(req).then(res => {
+    e.respondWith(fetch(req, {cache: "no-cache"}).then(res => {
       const copy = res.clone(); caches.open(VERSION).then(c => c.put("index.html", copy)); return res;
     }).catch(() => caches.match("index.html")));
     return;
@@ -40,7 +40,7 @@ self.addEventListener("fetch", e => {
   if (url.origin === location.origin) {
     e.respondWith(caches.open(VERSION).then(async c => {
       const hit = await c.match(req, {ignoreSearch: true});
-      const net = fetch(req).then(res => { if (res.ok) c.put(req, res.clone()); return res; }).catch(() => hit);
+      const net = fetch(req, {cache: "no-cache"}).then(res => { if (res.ok) c.put(req, res.clone()); return res; }).catch(() => hit);
       return hit || net;
     }));
   }
