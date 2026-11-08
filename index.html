@@ -270,6 +270,12 @@ details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
 /* 作家と作品の紹介（データから組み立てる） */
 .intro{display:grid;gap:3px;font-size:12px;color:var(--ink-soft);line-height:1.6;margin-top:2px}
 .intro .more{justify-self:start;border:0!important;padding:0;color:var(--accent);font-size:12px;text-decoration:underline;text-underline-offset:3px}
+/* 最後の頁の目印 */
+#endHint{position:absolute;left:0;top:100%;margin-top:8px;font-family:var(--f-ui);font-size:12px;color:var(--accent);background:none;border:0;padding:4px 2px;z-index:3}
+#endHint:hover,#endHintBar:hover{text-decoration:underline;text-underline-offset:3px}
+#app:not(.immersed) #endHint{display:none}
+#endHintBar{font-size:12px;color:var(--accent);background:none;border:0;padding:4px 6px;white-space:nowrap}
+.about{font-size:13px;line-height:1.8;margin:0}
 /* 読み終えたとき */
 .endcard h3{font-family:var(--f-text);font-size:19px;font-weight:600;margin:0;line-height:1.5}
 .endcard .ended{font-size:13px;color:var(--ink-soft);margin:0}
@@ -360,11 +366,12 @@ details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
   </header>
 
   <main id="stage" aria-label="本文">
-    <div id="frame"><div id="clip"><div id="content"></div></div><div id="fold" aria-hidden="true"></div><div id="clip2" aria-hidden="true"><div id="content2"></div></div><div class="ribbon" id="ribbon" hidden></div><div class="folio" id="folio" aria-hidden="true"><span class="nombre" id="nombre"></span><span class="hashira" id="hashira"></span><span class="nombre" id="nombre2"></span></div><div id="ghost" aria-hidden="true" hidden><div id="ghostContent"></div></div></div>
+    <div id="frame"><div id="clip"><div id="content"></div></div><div id="fold" aria-hidden="true"></div><div id="clip2" aria-hidden="true"><div id="content2"></div></div><div class="ribbon" id="ribbon" hidden></div><div class="folio" id="folio" aria-hidden="true"><span class="nombre" id="nombre"></span><span class="hashira" id="hashira"></span><span class="nombre" id="nombre2"></span></div><div id="ghost" aria-hidden="true" hidden><div id="ghostContent"></div></div><button type="button" id="endHint" hidden></button></div>
   </main>
 
   <footer class="bar bottom">
     <span class="pageno" id="pageNo">– / –</span>
+    <button type="button" id="endHintBar" hidden></button>
     <span class="track"><i id="trackFill"></i></span>
     <span class="hint">左で次へ・右で前へ・中央で帯の切替・中央を二回でしおり</span>
   </footer>
@@ -492,6 +499,9 @@ details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
       <button type="button" data-greet="always">開くたびに</button>
       <button type="button" data-greet="off">出さない</button>
     </div>
+    <h3>このアプリについて</h3>
+    <p class="about">青空縦組は、青空文庫の作品を本のような縦組みで読むために、個人で作っているアプリです。利用者のデータは集めていません。本文は、青空文庫の皆さんが入力し、校正したものです。</p>
+    <p class="about" id="aboutSupport" hidden></p>
     <details class="dev">
       <summary>作り手向けの情報</summary>
       <h3>注記の読み取り結果</h3>
@@ -593,10 +603,11 @@ const SAMPLE = [
 ].join("\n");
 
 /* ---------- 版情報（GitHubに置くときに書き換わる） ---------- */
-const APP_VERSION = "18", APP_DATE = "2026-11-08";
+const APP_VERSION = "19", APP_DATE = "2026-11-08";
 const APP_NOTES = [
-  "今日の一頁と読了のカードに、作家の生没年と、作品を発表したときの作者の年齢（「作者54歳のとき」など）を添えました",
-  "作品の初出を、青空文庫の図書カードの記録からも拾うようにしたため、初出が出る作品がおよそ一万に増えました"
+  "最後の頁の左下に「読了へ」の目印を出すようにしました。めくるか、目印を押すと「読了」のカードが出ます。めくり方が「スクロール」のときも、最後まで流すと目印が出ます",
+  "最小化したままでも、日付が変わってから戻ってきたときに「今日の一頁」が出るようにしました",
+  "「情報」に「このアプリについて」の欄を設けました"
 ]
 
 /* 応援のリンク（決まったら入れる。空のあいだは出さない） */
@@ -1392,12 +1403,20 @@ function updateStatus(){
   $("#pageNo").textContent = spread && pages[pageIdx + 1] ? `${pageIdx + 1}–${pageIdx + 2} / ${pages.length}` : `${pageIdx + 1} / ${pages.length}`;
   $("#trackFill").style.width = (pages.length > 1 ? pageIdx / (pages.length - 1) * 100 : 100) + "%";
   updateRibbon();
+  updateEndHint();
+}
+function updateEndHint(){
+  // スクロールでは最後の頁の頭まで流しきれないので、端まで来たかで見る
+  const atScrollEnd = () => Math.abs(clip.scrollLeft) + clip.clientWidth >= clip.scrollWidth - 8;
+  const last = !isSample && pages.length > 1 && (turn === "scroll" ? atScrollEnd() : pageIdx + (spread ? 1 : 0) >= pages.length - 1);
+  // 帯が出ているときは帯の中、帯を消して読んでいるときは本文の下に出す
+  ["#endHint", "#endHintBar"].forEach(id => { $(id).hidden = !last; if (last) $(id).textContent = turn === "scroll" ? "‹ 押して読了へ" : "‹ めくって読了へ"; });
 }
 let scrollSaveTimer;
 clip.addEventListener("scroll", () => {
   if (turn !== "scroll" || !pages.length) return;
   const idx = pageAtScroll();
-  if (idx !== pageIdx){ pageIdx = idx; updateStatus(); }
+  if (idx !== pageIdx){ pageIdx = idx; updateStatus(); } else updateEndHint();
   clearTimeout(scrollSaveTimer);
   scrollSaveTimer = setTimeout(() => {
     if (!docKey || !lines.length) return;
@@ -1654,14 +1673,14 @@ async function renderToday(books){
 }
 
 /* 開いたときの今日の一頁：使い方ナビと同じ形で重ね、読みかけがあれば続きへも戻れる */
-const bootAt = Date.now();
 function closeGreet(){ $("#greet").hidden = true; }
 async function showGreet(){
-  const mode = S.greet || "daily", day = dayNo();
+  const t0 = Date.now(), mode = S.greet || "daily", day = dayNo();
+  if (!$("#greet").hidden) return;
   if (mode === "off" || (mode === "daily" && store.get("aozora:greeted", 0) === day)) return;
   let t; try { t = await todayPick(await shelf.all()); } catch (e) { return; }
   // 選んでいる間に読み始めていたら、邪魔をしない（次に開いたときに出す）
-  if (!t || Date.now() - bootAt > 6000 || !$("#tour").hidden || !$("#sheetInfo").hidden || !$("#sheetMark").hidden || !$("#sheetFind").hidden || !$("#sheetView").hidden) return;
+  if (!t || Date.now() - t0 > 6000 || !$("#tour").hidden || !$("#endcard").hidden || !$("#sheetInfo").hidden || !$("#sheetMark").hidden || !$("#sheetFind").hidden || !$("#sheetView").hidden) return;
   store.set("aozora:greeted", day);
   const {w, ex} = t;
   const now = new Date();
@@ -1683,6 +1702,16 @@ async function showGreet(){
   $("#greet").hidden = false;
 }
 $("#greet").addEventListener("click", e => { if (e.target === $("#greet")) closeGreet(); });
+// アプリには「終了」がないので、日付が変わってから戻ってきたときも「開いたとき」とみなす
+let hiddenAt = 0;
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden"){ hiddenAt = Date.now(); return; }
+  if (!hiddenAt) return;
+  const away = Date.now() - hiddenAt; hiddenAt = 0;
+  const mode = S.greet || "daily";
+  if (mode === "daily" && store.get("aozora:greeted", 0) !== dayNo()) setTimeout(showGreet, 300);
+  else if (mode === "always" && away > 30 * 60e3) setTimeout(showGreet, 300);   // 開くたびに：30分以上離れていたとき
+});
 
 /* 読み終えたとき：底本と入力・校正の方を改めて載せ、次の一冊へつなぐ */
 let isSample = false;
@@ -1713,6 +1742,7 @@ async function showEnd(){
   $("#endcard").hidden = false;
 }
 $("#endcard").addEventListener("click", e => { if (e.target === $("#endcard")) closeEnd(); });
+$("#endHintBar").onclick = () => showEnd();
 
 /* 索引：作家／作品名／分類 */
 const ROWS = [["あ","あいうえお"],["か","かきくけこ"],["さ","さしすせそ"],["た","たちつてと"],["な","なにぬねの"],["は","はひふへほ"],["ま","まみむめも"],["や","やゆよ"],["ら","らりるれろ"],["わ","わをん"]];
@@ -2133,6 +2163,7 @@ stage.addEventListener("contextmenu", e => e.preventDefault());
 document.addEventListener("pointerdown", e => { if (!card.hidden && !card.contains(e.target) && !stage.contains(e.target)) hideCard(); });
 
 stage.addEventListener("click", e => {
+  if (e.target.closest("#endHint")){ showEnd(); return; }
   if (swiped){ swiped = false; return; }
   if (lpFired){ lpFired = false; return; }
   if (hideCard()) return;
@@ -2386,6 +2417,10 @@ document.querySelectorAll("#turns button").forEach(b => b.onclick = () => {
 });
 new ResizeObserver(() => { clearTimeout(relayTimer); relayTimer = setTimeout(() => layout(), 150); }).observe(stage);
 
+if (SUPPORT.url){
+  $("#aboutSupport").innerHTML = `<a href="${esc(SUPPORT.url)}" target="_blank" rel="noopener">${esc(SUPPORT.label)}</a>　気に入っていただけたら、作り続ける励みになります。`;
+  $("#aboutSupport").hidden = false;
+}
 syncSettings();
 applyPaper();
 renderPresets();
