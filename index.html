@@ -267,6 +267,16 @@ details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
 .greet .reading{font-size:12px;color:var(--ink-soft);border-top:1px solid var(--rule);padding-top:8px;line-height:1.6}
 .greet .reading b{color:var(--ink);font-weight:500}
 .greet .btnrow{margin-top:0}
+/* 作家と作品の紹介（データから組み立てる） */
+.intro{display:grid;gap:3px;font-size:12px;color:var(--ink-soft);line-height:1.6;margin-top:2px}
+.intro .more{justify-self:start;border:0!important;padding:0;color:var(--accent);font-size:12px;text-decoration:underline;text-underline-offset:3px}
+/* 読み終えたとき */
+.endcard h3{font-family:var(--f-text);font-size:19px;font-weight:600;margin:0;line-height:1.5}
+.endcard .ended{font-size:13px;color:var(--ink-soft);margin:0}
+.endcard .credit{font-size:12px;color:var(--ink-soft);line-height:1.7;border-top:1px solid var(--rule);padding-top:8px;margin:0}
+.endcard .credit b{color:var(--ink);font-weight:500}
+.endcard .support{font-size:13px;margin:0}
+.endcard .support a{color:var(--accent)}
 /* しおり */
 .ribbon{position:absolute;top:-8px;right:calc(-.55 * var(--mx,20px) - 5px);width:10px;height:40px;background:var(--accent);pointer-events:none;z-index:2;
   clip-path:polygon(0 0,100% 0,100% 100%,50% 78%,0 100%)}
@@ -522,6 +532,13 @@ details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
       <div class="btnrow" id="greetBtns"></div>
     </div>
   </div>
+  <div class="tour greet endcard" id="endcard" hidden role="dialog" aria-label="読み終えたとき">
+    <div class="tour-card">
+      <div class="step">読了</div>
+      <div id="endBody"></div>
+      <div class="btnrow" id="endBtns"></div>
+    </div>
+  </div>
   <div class="toast" id="toast" hidden role="status"></div>
   <div class="drop" id="drop" hidden>ここに置くと開きます（.txt / .zip）</div>
   <input id="file" type="file" accept=".txt,.zip,text/plain,application/zip" hidden>
@@ -576,11 +593,14 @@ const SAMPLE = [
 ].join("\n");
 
 /* ---------- 版情報（GitHubに置くときに書き換わる） ---------- */
-const APP_VERSION = "16", APP_DATE = "2026-11-08";
+const APP_VERSION = "17", APP_DATE = "2026-11-08";
 const APP_NOTES = [
-  "アプリを開くと、まず「今日の一頁」が出るようにしました。気になったら「この作品を読む」、読みかけの作品があれば「続きから読む」で、すぐ本文に入れます",
-  "今日の一頁は一日に一度だけ出ます。「情報」の「開いたときの今日の一頁」で、開くたびに出す・出さないも選べます"
+  "今日の一頁に、作品の初出（はじめて世に出た雑誌や年）と、その作家の作品が青空文庫にいくつあるかを添えました。「この作家の作品をもっと見る」から作家別の一覧へ進めます",
+  "作品を最後まで読んでから次の頁へ進むと、「読了」のカードが出ます。底本と、本文を入力・校正した方のお名前をあらためて載せ、この作家のほかの作品や次の作品探しへつなぎます"
 ]
+
+/* 応援のリンク（決まったら入れる。空のあいだは出さない） */
+const SUPPORT = {url:"", label:"縦組を応援する"};
 
 /* ---------- 小道具 ---------- */
 const $ = s => document.querySelector(s);
@@ -1422,11 +1442,12 @@ function show(i, dir){
   updateStatus();
 }
 const step = () => spread ? 2 : 1;
-const next = () => show(pageIdx + step(), 1);
+const next = () => atEnd() ? showEnd() : show(pageIdx + step(), 1);
 const prev = () => show(pageIdx - step(), -1);
 
 /* ---------- 作品の読み込み ---------- */
 function loadText(text, persist){
+  isSample = text === SAMPLE;
   doc = parseAozora(text);
   annotateDoc(doc);
   docKey = doc.title + "／" + doc.author;
@@ -1552,16 +1573,54 @@ async function renderFind(){
     : `<p class="find-empty">見つかりませんでした。作品名の一部や、作家の名字だけでも探せます。</p>`;
   body.querySelectorAll(".wk-go[data-id]").forEach(b => b.onclick = () => openWork(+b.dataset.id, b.parentElement));
 }
+/* 奥付（底本・初出・入力・校正）から一項目を取り出す。続きの行（字下げされた行）もつなぐ */
+function colField(colo, key){
+  const k = (colo || []).findIndex(t => t.replace(/^[\s　]+/, "").startsWith(key + "："));
+  if (k < 0) return "";
+  let v = colo[k].replace(/^[\s　]+/, "").slice(key.length + 1);
+  for (let i = k + 1; i < colo.length && /^[\s　]/.test(colo[i]) && colo[i].trim(); i++) v += colo[i].trim();
+  return v.replace(/［＃[^］]*］|《[^》]*》|｜/g, "").trim();
+}
+const yearOf = t => { const m = z2h(t || "").match(/(1[6-9]\d\d|20\d\d)/); return m ? +m[1] : 0; };
+const strip = t => (t || "").replace(/[\s　]/g, "");
+const dispName = n => /[ァ-ヺ]/.test(n) ? n.replace(/\s+/g, "・") : strip(n);   // 文中では「萩原朔太郎」「アーヴィング・ワシントン」
+/* 紹介の行：生没年・初出と作者の年齢・作品数。どれもデータから組み立て、ないものは出さない */
+function introHtml(w, first){
+  const d = IDX; if (!d) return "";
+  const a = w[7][0], p = a != null ? d.p[a] : null;
+  const life = p && p[3] ? `（${p[3]}–${p[4] || ""}）` : "";
+  first = (w[13] || first || "").slice(0, 70);
+  const y = yearOf(first);
+  let age = "";
+  if (p && p[3] && y){ const n = y - p[3]; if (p[4] && y > p[4]) age = "　作者の没後に発表"; else if (n >= 10 && n <= 100) age = `　作者${n}歳のとき`; }
+  const count = p ? d.w.filter(x => !(x[6] & 1) && x[7].includes(a)).length : 0;
+  const rows = [];
+  if (life) rows.push(`<span>${esc(dispName(p[1]))}${life}</span>`);
+  if (first) rows.push(`<span>初出：${esc(first)}${age}</span>`);
+  if (count > 1) rows.push(`<span>${esc(dispName(p[1]))}の作品は、青空文庫で${count}作読めます</span><button type="button" class="more" data-author="${a}">この作家の作品をもっと見る</button>`);
+  return rows.length ? `<div class="intro">${rows.join("")}</div>` : "";
+}
+function showAuthor(a){
+  const p = IDX && IDX.p[a]; if (!p) return;
+  closeGreet(); closeEnd();
+  browse = {mode:"author", path:[rowOf(head(p[2])), String(a)]};
+  $("#q").value = "";
+  openSheet("#sheetFind"); renderFind();
+  setTimeout(() => { const b = $("#browse"); if (b) b.scrollIntoView({block:"start"}); }, 300);
+}
+const wireAuthors = root => root.querySelectorAll("[data-author]").forEach(b => b.onclick = () => showAuthor(+b.dataset.author));
+
 /* 今日の一頁：日ごとに、まだ本棚にない作品から一節を選んで見せる */
 const dayNo = () => { const t = new Date(); return t.getFullYear() * 1000 + Math.floor((t - new Date(t.getFullYear(), 0, 0)) / 864e5); };
 async function todayPick(books){
   const d = await loadIndex(), day = dayNo();
   const owned = new Set((books || []).map(b => b.id));
   let pick = store.get("aozora:today", null);
-  if (!pick || pick.day !== day){
+  if (!pick || pick.day !== day || pick.first === undefined){
     const cands = d.w.filter(w => w[6] === 2 && w[12] >= 3 && w[12] <= 60 && !owned.has("w" + w[0]));
-    const w = cands[((day * 2654435761) >>> 0) % cands.length];
-    pick = {day, id:w[0], excerpt:""};
+    const keep = pick && pick.day === day ? d.w.find(x => x[0] === pick.id) : null;   // 同じ日なら同じ作品のまま
+    const w = keep || cands[((day * 2654435761) >>> 0) % cands.length];
+    pick = {day, id:w[0], excerpt:"", first:""};
     try {
       const name = w[10].split("/")[1];
       const res = await fetch(`${MIRROR}${w[10].split("/")[0]}/files/${name}/${name}.txt`);
@@ -1570,23 +1629,25 @@ async function todayPick(books){
         const paras = pd.lines.filter(L => !L.heading && L.cells.length >= 60 && L.cells.length <= 240);
         const L = paras.length ? paras[(day * 40503) % paras.length] : pd.lines.find(L => L.cells.length > 20);
         if (L) pick.excerpt = L.cells.map(c => c.ch).join("").replace(/^[\u3000\s]+/, "");
+        pick.first = colField(pd.colophon, "初出");
       }
     } catch (e) {}
     store.set("aozora:today", pick);
   }
   const w = d.w.find(x => x[0] === pick.id); if (!w) return null;
   const ex = pick.excerpt ? (pick.excerpt.length > 150 ? pick.excerpt.slice(0, 150) + "……" : pick.excerpt) : "";
-  return {w, ex};
+  return {w, ex, first:pick.first || ""};
 }
-const todayHtml = (w, ex, btn) => `<div class="today" data-id="${w[0]}">${ex ? `<div class="today-v">${esc(ex)}</div>` : ""}
+const todayHtml = (w, ex, btn, first) => `<div class="today" data-id="${w[0]}">${ex ? `<div class="today-v">${esc(ex)}</div>` : ""}
     <div class="today-m"><b>${esc(w[1])}</b><span>${esc(names(w[7]))}・${fmtMin(w[12])}</span>
-    <span>${KANA_LABEL[w[4]]}${w[11] ? "・底本：" + esc(w[11]) : ""}</span>${btn ? `
+    <span>${KANA_LABEL[w[4]]}${w[11] ? "・底本：" + esc(w[11]) : ""}</span>${introHtml(w, first)}${btn ? `
     <button type="button" id="todayGo">この作品を読む</button>` : ""}</div></div>`;
 async function renderToday(books){
   if (!$("#today")) return;
   let t; try { t = await todayPick(books); } catch (e) { if ($("#today")) $("#today").innerHTML = `<p class="find-empty">通信できる場所で開くと、今日の一頁が出ます。</p>`; return; }
   if (!t || !$("#today")) return;
-  $("#today").innerHTML = todayHtml(t.w, t.ex, true);
+  $("#today").innerHTML = todayHtml(t.w, t.ex, true, t.first);
+  wireAuthors($("#today"));
   $("#todayGo").onclick = () => openWork(t.w[0], $("#today .today"));
 }
 
@@ -1605,11 +1666,12 @@ async function showGreet(){
   $("#greetDate").textContent = `今日の一頁　${now.getMonth() + 1}月${now.getDate()}日（${"日月火水木金土"[now.getDay()]}）`;
   const reading = !!store.get("aozora:last", null) && doc && pages.length && pageIdx < pages.length - 1 && w[1] !== doc.title;
   const pct = reading ? Math.max(1, Math.round((pageIdx + 1) / pages.length * 100)) : 0;
-  $("#greetBody").innerHTML = todayHtml(w, ex, false) + (reading ? `<div class="reading">読みかけ：<b>${esc(doc.title)}</b>　${esc(doc.author)}　${pageIdx ? `${pct}%まで` : "まだ一頁目"}</div>` : "");
+  $("#greetBody").innerHTML = todayHtml(w, ex, false, t.first) + (reading ? `<div class="reading">読みかけ：<b>${esc(doc.title)}</b>　${esc(doc.author)}　${pageIdx ? `${pct}%まで` : "まだ一頁目"}</div>` : "");
   $("#greetBtns").innerHTML = reading
     ? `<button type="button" id="greetGo">この作品を読む</button><button type="button" class="primary" id="greetBack">${pageIdx ? "続きから読む" : "読みかけを読む"}</button>`
     : `<button type="button" id="greetBack">閉じる</button><button type="button" class="primary" id="greetGo">この作品を読む</button>`;
   $("#greetBack").onclick = closeGreet;
+  wireAuthors($("#greetBody"));
   $("#greetGo").onclick = async () => {
     const b = $("#greetGo"); b.disabled = true;
     const ok = await openWork(w[0], $("#greetBody .today"));
@@ -1619,6 +1681,29 @@ async function showGreet(){
   $("#greet").hidden = false;
 }
 $("#greet").addEventListener("click", e => { if (e.target === $("#greet")) closeGreet(); });
+
+/* 読み終えたとき：底本と入力・校正の方を改めて載せ、次の一冊へつなぐ */
+let isSample = false;
+function closeEnd(){ $("#endcard").hidden = true; }
+const atEnd = () => turn !== "scroll" && pages.length && pageIdx + step() > pages.length - 1;
+async function showEnd(){
+  if (isSample || !doc) return;
+  try { await loadIndex(); } catch (e) {}
+  const w = IDX ? (IDX.w.find(x => x[1] === doc.title && x[7].some(i => strip(IDX.p[i][1]) === strip(doc.author))) || null) : null;
+  const colo = doc.colophon, base = colField(colo, "底本"), inp = colField(colo, "入力"), proof = colField(colo, "校正");
+  const credit = [base && `底本：${esc(base.slice(0, 80))}`, inp && `入力：<b>${esc(inp)}</b>`, proof && `校正：<b>${esc(proof)}</b>`].filter(Boolean);
+  $("#endBody").innerHTML = `<h3>${esc(doc.title)}</h3><p class="ended">${esc(doc.author)}${w && w[12] ? `・${fmtMin(w[12])}の作品` : "の作品"}を、読み終えました。</p>`
+    + (w ? introHtml(w, colField(colo, "初出")) : "")
+    + (credit.length ? `<p class="credit">${credit.join("<br>")}<br>この本文は、青空文庫の皆さんが入力し、校正したものです。</p>` : "")
+    + (SUPPORT.url ? `<p class="support"><a href="${esc(SUPPORT.url)}" target="_blank" rel="noopener">${esc(SUPPORT.label)}</a></p>` : "");
+  $("#endBtns").innerHTML = `<button type="button" id="endBack">最後の頁に戻る</button><button type="button" class="primary" id="endFind">次の作品を探す</button>`;
+  $("#endBack").onclick = closeEnd;
+  $("#endFind").onclick = () => { closeEnd(); $("#q").value = ""; openSheet("#sheetFind"); renderFind(); };
+  wireAuthors($("#endBody"));
+  app.classList.remove("immersed");
+  $("#endcard").hidden = false;
+}
+$("#endcard").addEventListener("click", e => { if (e.target === $("#endcard")) closeEnd(); });
 
 /* 索引：作家／作品名／分類 */
 const ROWS = [["あ","あいうえお"],["か","かきくけこ"],["さ","さしすせそ"],["た","たちつてと"],["な","なにぬねの"],["は","はひふへほ"],["ま","まみむめも"],["や","やゆよ"],["ら","らりるれろ"],["わ","わをん"]];
@@ -2078,6 +2163,7 @@ stage.addEventListener("wheel", e => {
 document.addEventListener("keydown", e => {
   if (e.target.closest("input,select,textarea")) return;
   if (!$("#greet").hidden){ if (e.key === "Escape") closeGreet(); return; }
+  if (!$("#endcard").hidden){ if (e.key === "Escape") closeEnd(); return; }
   if (e.key === "Escape"){ closeSheets(); return; }
   if (!$("#sheetInfo").hidden || !$("#sheetMark").hidden || !$("#sheetFind").hidden) return;
   if (e.key === "ArrowLeft" || e.key === "PageDown" || (e.key === " " && !e.shiftKey)){ e.preventDefault(); next(); }
