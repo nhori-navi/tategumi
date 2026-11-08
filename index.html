@@ -204,10 +204,19 @@ details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
 .wk-msg{font-size:12px;line-height:1.7;color:var(--ink);background:color-mix(in srgb,var(--rule) 40%,transparent);border-radius:8px;padding:8px 10px}
 .wk-del{border:1px solid var(--rule)!important;padding:0 10px;font-size:12px;color:var(--ink-soft)}
 .find-empty{font-size:13px;color:var(--ink-soft);margin:4px 0}
+/* 柱とノンブル：読書中（帯を隠したとき）だけ、本のように頁の上に出す */
+.folio{position:absolute;left:0;right:0;bottom:100%;margin-bottom:calc(var(--my,12px) + 6px);display:flex;align-items:baseline;
+  font-family:var(--f-text);font-size:11px;line-height:1;color:var(--ink-soft);pointer-events:none;opacity:0;transition:opacity .25s}
+#app.immersed.folios .folio{opacity:1}
+.folio .nombre{font-variant-numeric:tabular-nums;letter-spacing:.05em}
+.folio .hashira{flex:1;text-align:center;letter-spacing:.6em;padding-left:.6em;white-space:nowrap;overflow:hidden;text-overflow:clip}
+@media (prefers-reduced-motion:reduce){.folio{transition:none}}
 /* しおり */
 .ribbon{position:absolute;top:-8px;right:calc(-.55 * var(--mx,20px) - 5px);width:10px;height:40px;background:var(--accent);pointer-events:none;z-index:2;
   clip-path:polygon(0 0,100% 0,100% 100%,50% 78%,0 100%)}
 .flash{position:absolute;top:-6px;bottom:-6px;background:var(--accent);opacity:0;pointer-events:none;border-radius:4px;z-index:1}
+.hints .kt.nt{text-decoration:none;position:relative}
+.hints .kt.nt::before{content:"＊";position:absolute;top:-.35em;right:-.95em;font-size:.55em;line-height:1;color:var(--accent);font-family:var(--f-ui)}
 .hints .kt{text-decoration:underline dotted;text-decoration-color:color-mix(in srgb,var(--accent) 70%,transparent);
   text-underline-position:left;text-decoration-thickness:1.5px;text-underline-offset:.18em;cursor:pointer}
 .card{position:absolute;z-index:12;width:min(300px,calc(100% - 32px));background:var(--paper);color:var(--ink);
@@ -281,7 +290,7 @@ details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
   </header>
 
   <main id="stage" aria-label="本文">
-    <div id="frame"><div id="clip"><div id="content"></div></div><div class="ribbon" id="ribbon" hidden></div><div id="ghost" aria-hidden="true" hidden><div id="ghostContent"></div></div></div>
+    <div id="frame"><div id="clip"><div id="content"></div></div><div class="ribbon" id="ribbon" hidden></div><div class="folio" id="folio" aria-hidden="true"><span class="nombre" id="nombre"></span><span class="hashira" id="hashira"></span></div><div id="ghost" aria-hidden="true" hidden><div id="ghostContent"></div></div></div>
   </main>
 
   <footer class="bar bottom">
@@ -309,9 +318,16 @@ details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
           <button type="button" data-face="Noto Serif JP" style="font-family:'Noto Serif JP',serif">源ノ明朝</button>
           <button type="button" data-face="BIZ UDMincho" style="font-family:'BIZ UDMincho',serif">BIZ UD明朝</button>
         </div>
-        <div class="field"><label for="rngSize">文字サイズ</label><input id="rngSize" type="range" min="14" max="30" step="1"><output id="outSize"></output></div>
+        <div class="field"><label for="rngSize">文字サイズ</label><input id="rngSize" type="range" min="12" max="30" step="1"><output id="outSize"></output></div>
         <div class="field"><label for="rngLh">行間</label><input id="rngLh" type="range" min="1.6" max="2.4" step="0.05"><output id="outLh"></output></div>
         <div class="field"><label for="rngChars">一行の字数</label><input id="rngChars" type="range" min="20" max="50" step="1"><output id="outChars"></output></div>
+        <div class="turns" id="presetRow">
+          <button type="button" id="btnBunko">文庫本に近づける（一行38字）</button>
+        </div>
+        <div class="turns" id="folioRow">
+          <button type="button" data-folio="on">柱とノンブルを出す</button>
+          <button type="button" data-folio="off">出さない</button>
+        </div>
         <div class="turns" id="hintsRow">
           <button type="button" data-hints="on">手がかりに印を付ける</button>
           <button type="button" data-hints="off">印を付けない</button>
@@ -451,11 +467,12 @@ const SAMPLE = [
 ].join("\n");
 
 /* ---------- 版情報（GitHubに置くときに書き換わる） ---------- */
-const APP_VERSION = "5", APP_DATE = "2026-11-08";
+const APP_VERSION = "6", APP_DATE = "2026-11-08";
 const APP_NOTES = [
-  "作品の索引（作家・作品名・分類）から探せるようにしました",
-  "作品の中の手がかりと入力者の注を、情報の画面で一覧できるようにしました",
-  "版情報を表示するようにしました"
+  "親文字より長いルビを、前後のかなに掛けて収めるようにしました",
+  "入力者の注を、本の注解のように右肩の「＊」で示すようにしました",
+  "読書中に柱（作品名）とノンブル（頁番号）を出せるようにしました",
+  "「文庫本に近づける」で、一行38字・行間1.7にまとめて切り替えられるようにしました"
 ];
 
 /* ---------- 小道具 ---------- */
@@ -682,7 +699,7 @@ function annotateDoc(doc){
     for (const n of (L.notes || [])){
       for (let k = n.s; k < n.e; k++) taken[k] = 1;
       const id = doc.kotoba.push({kind:"note", text:L.cells.slice(n.s, n.e).map(c => c.ch).join(""), note:n.text}) - 1;
-      L.spans.push({t:"kt", s:n.s, e:n.e, c:`kt kt-${id}`});
+      L.spans.push({t:"kt", s:n.s, e:n.e, c:`kt kt-${id} nt`});
     }
     const add = (m, info) => {
       const a = at[m.index], b = at[m.index + m[0].length - 1] + 1;
@@ -806,8 +823,19 @@ function buildUnits(L){
     if (rubyAt.has(q)){
       const sp = rubyAt.get(q);
       let bw = 0; for (let t = sp.s; t < sp.e; t++) bw += cells[t].g ? 1 : emWidth(cells[t].ch);
-      u = {k:"ruby", html:`<ruby>${run(sp.s, sp.e)}<rp>（</rp><rt>${esc(sp.rt)}</rt><rp>）</rp></ruby>`,
-           w:Math.max(bw, [...sp.rt].length * 0.5), n:sp.e - sp.s, a:CL[cells[sp.s].ch], z:CL[cells[sp.e - 1].ch]};
+      const rw = [...sp.rt].length * 0.5, excess = Math.max(0, rw - bw);
+      const isKana = c => c && !c.g && (HIRA.test(c.ch) || KATA.test(c.ch));
+      let ovA = 0, ovB = 0;
+      if (excess > 0){
+        const half = excess / 2;
+        ovA = isKana(cells[sp.s - 1]) ? Math.min(0.5, half) : 0;
+        ovB = isKana(cells[sp.e]) ? Math.min(0.5, half) : 0;
+        if (!ovA && ovB) ovB = Math.min(0.5, excess);   // 片側だけ掛けられるときは、そちらに寄せる
+        if (!ovB && ovA) ovA = Math.min(0.5, excess);
+      }
+      const mstyle = (ovA || ovB) ? ` style="margin-inline:${-ovA}em ${-ovB}em"` : "";
+      u = {k:"ruby", html:`<ruby${mstyle}>${run(sp.s, sp.e)}<rp>（</rp><rt>${esc(sp.rt)}</rt><rp>）</rp></ruby>`,
+           w:Math.max(bw, rw) - ovA - ovB, n:sp.e - sp.s, a:CL[cells[sp.s].ch], z:CL[cells[sp.e - 1].ch]};
       u.d = deco[q]; q = sp.e;
     } else if (tcyAt.has(q)){
       const sp = tcyAt.get(q);
@@ -949,7 +977,7 @@ function renderDocEngine(doc, N){
 function renderDoc(doc, N){ return S.engine ? renderDocEngine(doc, N) : renderDocBrowser(doc); }
 
 /* ---------- 版面と頁割り ---------- */
-const S = Object.assign({face:"Shippori Mincho", size:19, lh:1.85, chars:40, turn:"fade", light:"aozora", dark:"yoru", mode:"auto", contrast:100, engine:true, hang:true, margin:1.5, hints:true}, store.get("aozora:settings", {}));
+const S = Object.assign({face:"Shippori Mincho", size:19, lh:1.85, chars:40, turn:"fade", light:"aozora", dark:"yoru", mode:"auto", contrast:100, engine:true, hang:true, margin:1.5, hints:true, folio:true}, store.get("aozora:settings", {}));
 const app = $("#app"), stage = $("#stage"), frame = $("#frame"), clip = $("#clip"), content = $("#content");
 const ghost = $("#ghost"), ghostContent = $("#ghostContent");
 let turn = S.turn, anims = [];
@@ -1145,7 +1173,13 @@ function pageAtScroll(){
   let idx = 0; pages.forEach((p, k) => { if (p.s <= d) idx = k; });
   return idx;
 }
+function updateFolio(){
+  if (!doc) return;
+  $("#hashira").textContent = doc.title;
+  $("#nombre").textContent = pages.length ? String(pageIdx + 1) : "";
+}
 function updateStatus(){
+  updateFolio();
   $("#pageNo").textContent = `${pageIdx + 1} / ${pages.length}`;
   $("#trackFill").style.width = (pages.length > 1 ? pageIdx / (pages.length - 1) * 100 : 100) + "%";
   updateRibbon();
@@ -1488,7 +1522,7 @@ function fillInfo(){
 
 function fillVersion(){
   const dev = APP_VERSION.startsWith("__");
-  const rows = [["アプリ", dev ? "Claudeの中の試作" : `青空縦組 v${APP_VERSION}（${APP_DATE}）`]];
+  const rows = [["アプリ", dev ? "Claudeの中の試作" : `青空縦組 版${APP_VERSION}（${APP_DATE}）`]];
   if (IDX) rows.push(["作品一覧", `${IDX.v} 時点（${IDX.w.length.toLocaleString()}作品）`], ["取り込み元", `${IDX.mirror} 時点`]);
   rows.push(["この版の変更", APP_NOTES.map(esc).join("<br>")]);
   $("#infoVersion").innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("");
@@ -1794,6 +1828,8 @@ function syncSettings(){
   document.querySelectorAll("#turns button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.turn === turn)));
   document.querySelectorAll("#modes button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.mode === S.mode)));
   document.querySelectorAll(".sw").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.themeKey === S.light || b.dataset.themeKey === S.dark)));
+  document.querySelectorAll("#folioRow button").forEach(b => b.setAttribute("aria-pressed", String((b.dataset.folio === "on") === !!S.folio)));
+  app.classList.toggle("folios", !!S.folio);
   document.querySelectorAll("#hintsRow button").forEach(b => b.setAttribute("aria-pressed", String((b.dataset.hints === "on") === !!S.hints)));
   content.classList.toggle("hints", !!S.hints); ghostContent.classList.toggle("hints", !!S.hints);
   document.querySelectorAll("#engines button").forEach(b => b.setAttribute("aria-pressed", String((b.dataset.engine === "on") === !!S.engine)));
@@ -1811,6 +1847,20 @@ document.querySelectorAll("#faces button").forEach(b => b.onclick = () => {
   const go = () => layout();
   if (document.fonts && document.fonts.load) document.fonts.load(`${S.size}px "${S.face}"`, "夜の停車場《》、。").then(go, go); else go();
 });
+document.querySelectorAll("#folioRow button").forEach(b => b.onclick = () => { S.folio = b.dataset.folio === "on"; syncSettings(); store.set("aozora:settings", S); });
+// 文庫本に近づける：一行38字が今の画面にちょうど収まる文字の大きさにし、行間を文庫本の比率に寄せる
+$("#btnBunko").onclick = () => {
+  const cs = getComputedStyle(stage);
+  const my = parseFloat(stage.style.getPropertyValue("--my")) || 12;
+  const tuningPhone = app.classList.contains("tuning") && innerWidth < 760;  // 調整パネルを閉じたときの高さで計算する
+  const padB = tuningPhone ? 44 + my : parseFloat(cs.paddingBottom);
+  const availH = stage.clientHeight - parseFloat(cs.paddingTop) - padB;
+  const scale = measureEm() / S.size;                 // 端末の文字拡大の倍率
+  S.chars = 38; S.lh = 1.7; S.margin = 1.5;
+  S.size = Math.max(12, Math.floor((availH - availH / 39) / 38 / scale));
+  changed();
+  toast(`一行38字・行間1.7にしました（文字の大きさ ${S.size}px）。`);
+};
 document.querySelectorAll("#hintsRow button").forEach(b => b.onclick = () => { S.hints = b.dataset.hints === "on"; syncSettings(); store.set("aozora:settings", S); });
 document.querySelectorAll("#engines button").forEach(b => b.onclick = () => { S.engine = b.dataset.engine === "on"; changed(); });
 document.querySelectorAll("#hangs button").forEach(b => b.onclick = () => { S.hang = b.dataset.hang === "on"; changed(); });
