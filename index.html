@@ -163,6 +163,28 @@ pre.json{font-size:11px;line-height:1.5;background:color-mix(in srgb,var(--rule)
 .btnrow button{border-color:var(--rule);padding:7px 12px;font-size:13px}
 .btnrow button.primary{border-color:var(--accent);color:var(--accent)}
 .sheet a{color:var(--accent)}
+/* 情報 */
+.hint-group{display:grid;gap:4px;margin-bottom:8px}
+.hint-group b{font-size:12px;font-weight:500;color:var(--ink-soft)}
+.hint-items{display:flex;flex-wrap:wrap;gap:6px}
+.hint-items button{border:1px solid var(--rule)!important;padding:4px 10px;font-family:var(--f-text);font-size:14px;border-radius:999px}
+.hint-items button:hover{border-color:var(--accent)!important}
+.hint-items .sw-dot{display:inline-block;width:.8em;height:.8em;border-radius:50%;border:1px solid var(--rule);margin-right:.35em;vertical-align:-.05em}
+details.dev{margin-top:18px;border-top:1px solid var(--rule);padding-top:10px}
+details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
+/* 索引 */
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{border:1px solid var(--rule)!important;padding:6px 12px;font-size:13px;border-radius:999px}
+.seg button[aria-pressed="true"]{border-color:var(--accent)!important;color:var(--accent)}
+.gojuon{display:grid;grid-template-columns:repeat(auto-fill,minmax(44px,1fr));gap:6px}
+.gojuon button{border:1px solid var(--rule)!important;padding:8px 0;font-family:var(--f-text);font-size:16px}
+.gojuon button:disabled{opacity:.35}
+.crumb{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-soft)}
+.crumb button{border:1px solid var(--rule)!important;padding:4px 10px;font-size:12px}
+.au{display:flex;justify-content:space-between;gap:10px;text-align:left;border:1px solid var(--rule)!important;padding:9px 11px}
+.au span:first-child{font-family:var(--f-text);font-size:15px}
+.au span:last-child{font-size:12px;color:var(--ink-soft);font-variant-numeric:tabular-nums;white-space:nowrap}
+.more{border:1px solid var(--rule)!important;padding:8px;font-size:13px}
 /* 探す */
 .sheet.find{height:86%;display:flex;flex-direction:column;gap:10px}
 .sheet.find h2{margin:0}
@@ -353,21 +375,26 @@ pre.json{font-size:11px;line-height:1.5;background:color-mix(in srgb,var(--rule)
     <h2>情報 <button class="x" type="button" data-close>閉じる</button></h2>
     <h3>作品</h3>
     <dl class="kv" id="infoWork"></dl>
+    <h3>この作品の手がかりと注</h3>
+    <div id="infoHints"></div>
     <h3>底本・入力・校正</h3>
     <p class="colo" id="infoColo"></p>
-    <h3>注記の読み取り結果</h3>
-    <dl class="kv" id="infoReport"></dl>
-    <ul class="unk" id="infoUnknown"></ul>
-    <h3>組版エンジンの処理</h3>
-    <dl class="kv" id="infoEngine"></dl>
-    <h3>中間データの見本（ルビを含む最初の行）</h3>
-    <pre class="json" id="infoJson"></pre>
-    <h3>ファイルから読み込む</h3>
-    <p style="margin:0;font-size:13px">青空文庫の作品ページで「テキストファイル(ルビあり)」のzipを保存し、「開く」で選びます。zipのままで読めます。画面にドラッグしても開けます。<br>例：<a href="https://www.aozora.gr.jp/cards/000081/card456.html" target="_blank" rel="noopener">銀河鉄道の夜（宮沢賢治）の作品ページ</a></p>
-    <div class="btnrow">
-      <button type="button" class="primary" id="btnOpen2">ファイルを開く</button>
-      <button type="button" id="btnSample">組版見本に戻す</button>
-    </div>
+    <h3>版情報</h3>
+    <dl class="kv" id="infoVersion"></dl>
+    <details class="dev">
+      <summary>作り手向けの情報</summary>
+      <h3>注記の読み取り結果</h3>
+      <dl class="kv" id="infoReport"></dl>
+      <ul class="unk" id="infoUnknown"></ul>
+      <h3>組版エンジンの処理</h3>
+      <dl class="kv" id="infoEngine"></dl>
+      <h3>中間データの見本（ルビを含む最初の行）</h3>
+      <pre class="json" id="infoJson"></pre>
+      <div class="btnrow">
+        <button type="button" id="btnOpen2">ファイルを開く</button>
+        <button type="button" id="btnSample">組版見本に戻す</button>
+      </div>
+    </details>
   </section>
 
   <div class="toast" id="toast" hidden role="status"></div>
@@ -422,6 +449,14 @@ const SAMPLE = [
 "入力：青空縦組",
 "校正：青空縦組"
 ].join("\n");
+
+/* ---------- 版情報（GitHubに置くときに書き換わる） ---------- */
+const APP_VERSION = "5", APP_DATE = "2026-11-08";
+const APP_NOTES = [
+  "作品の索引（作家・作品名・分類）から探せるようにしました",
+  "作品の中の手がかりと入力者の注を、情報の画面で一覧できるようにしました",
+  "版情報を表示するようにしました"
+];
 
 /* ---------- 小道具 ---------- */
 const $ = s => document.querySelector(s);
@@ -538,7 +573,13 @@ function parseLine(s0, st, rep){
       if (idx >= 0){ const o = st.open.splice(idx, 1)[0]; if (o.s < cells.length) spans.push({t:"deco", s:o.s, e:cells.length, c:o.c}); rep.em++; }
       return;
     }
-    if (/^「.+」は底本では「.+」$/.test(a) || /ママ/.test(a) || /^「.+」はルビ付き$/.test(a)){ rep.note++; return; }
+    if (/^「.+」は底本では「.+」$/.test(a) || /ママ/.test(a) || /^「.+」はルビ付き$/.test(a)){
+      rep.note++;
+      const t = a.match(/^「(.+?)」(?:は|に)/);
+      const r = t && findBack(t[1]);
+      if (r) (L.notes || (L.notes = [])).push({s:r[0], e:r[1], text:a});
+      return;
+    }
     unknown(a);
   };
 
@@ -638,6 +679,11 @@ function annotateDoc(doc){
     let str = ""; const at = [];
     L.cells.forEach((c, k) => { for (let t = 0; t < c.ch.length; t++) at.push(k); str += c.ch; });
     const taken = new Uint8Array(L.cells.length);
+    for (const n of (L.notes || [])){
+      for (let k = n.s; k < n.e; k++) taken[k] = 1;
+      const id = doc.kotoba.push({kind:"note", text:L.cells.slice(n.s, n.e).map(c => c.ch).join(""), note:n.text}) - 1;
+      L.spans.push({t:"kt", s:n.s, e:n.e, c:`kt kt-${id}`});
+    }
     const add = (m, info) => {
       const a = at[m.index], b = at[m.index + m[0].length - 1] + 1;
       for (let k = a; k < b; k++) if (taken[k]) return;
@@ -1217,6 +1263,7 @@ function loadIndex(){
   return idxLoading || (idxLoading = fetch("index.json").then(r => { if (!r.ok) throw new Error(); return r.json(); }).then(d => {
     d.w.forEach(w => { w.k = norm(w[1] + w[2] + w[3]); w.ak = norm(w[7].map(i => d.p[i][1] + d.p[i][2]).join("")); });
     $("#findNote").textContent = `作品一覧 ${d.v} 時点・取り込み元 ${d.mirror} 時点`;
+    setTimeout(() => { if (doc) fillVersion(); }, 0);
     return (IDX = d);
   }).catch(e => { idxLoading = null; throw e; }));
 }
@@ -1239,8 +1286,10 @@ async function renderFind(){
       <span class="wk-t">${esc(b.title)}</span><span class="wk-m">${esc(b.author)}<span class="tag">端末に保存済み</span></span></button>
       <button type="button" class="wk-del" data-del="${esc(b.id)}" aria-label="本棚から外す">外す</button></div>`).join("")
       : `<p class="find-empty">読んだ作品はここに並び、電波のない場所でも開けます。上の欄に作品名や作家名を入れて探してください。</p>`);
+    body.insertAdjacentHTML("beforeend", `<h3>索引から探す</h3><div id="browse"></div>`);
     body.querySelectorAll("[data-shelf]").forEach(b => b.onclick = () => openShelf(b.dataset.shelf));
     body.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => { await shelf.del(b.dataset.del); renderFind(); });
+    renderBrowse();
     return;
   }
   body.innerHTML = `<p class="find-empty">作品一覧を読み込んでいます…</p>`;
@@ -1260,6 +1309,71 @@ async function renderFind(){
     ? `<h3>${hits.length.toLocaleString()} 件${hits.length > 80 ? "（はじめの80件）" : ""}</h3>` + hits.slice(0, 80).map(h => workRow(h[1])).join("")
     : `<p class="find-empty">見つかりませんでした。作品名の一部や、作家の名字だけでも探せます。</p>`;
   body.querySelectorAll(".wk-go[data-id]").forEach(b => b.onclick = () => openWork(+b.dataset.id, b.parentElement));
+}
+/* 索引：作家／作品名／分類 */
+const ROWS = [["あ","あいうえお"],["か","かきくけこ"],["さ","さしすせそ"],["た","たちつてと"],["な","なにぬねの"],["は","はひふへほ"],["ま","まみむめも"],["や","やゆよ"],["ら","らりるれろ"],["わ","わをん"]];
+const BASE = {"ぁ":"あ","ぃ":"い","ぅ":"う","ぇ":"え","ぉ":"お","ゔ":"う","が":"か","ぎ":"き","ぐ":"く","げ":"け","ご":"こ","ざ":"さ","じ":"し","ず":"す","ぜ":"せ","ぞ":"そ","だ":"た","ぢ":"ち","っ":"つ","づ":"つ","で":"て","ど":"と","ば":"は","ぱ":"は","び":"ひ","ぴ":"ひ","ぶ":"ふ","ぷ":"ふ","べ":"へ","ぺ":"へ","ぼ":"ほ","ぽ":"ほ","ゃ":"や","ゅ":"ゆ","ょ":"よ","ゎ":"わ","ゐ":"い","ゑ":"え"};
+const head = y => { const c = norm(y)[0] || ""; return BASE[c] || c; };
+const rowOf = c => (ROWS.find(r => r[1].includes(c)) || [null])[0];
+const GENRES = [
+  ["児童文学", w => /^K/.test(w[5])], ["小説・物語", w => /^913/.test(w[5])], ["詩歌", w => /^911/.test(w[5])], ["戯曲", w => /^912/.test(w[5])],
+  ["随筆・評論", w => /^914/.test(w[5])], ["日記・書簡・紀行", w => /^915/.test(w[5])], ["記録・手記", w => /^916/.test(w[5])],
+  ["外国文学（翻訳）", w => /^9[3-9]/.test(w[5])], ["哲学・宗教", w => /^1/.test(w[5])], ["歴史・地理", w => /^2/.test(w[5])],
+  ["社会", w => /^3/.test(w[5])], ["自然科学", w => /^4/.test(w[5])], ["技術・産業", w => /^[56]/.test(w[5])],
+  ["芸術", w => /^7/.test(w[5])], ["言語", w => /^8/.test(w[5])]
+];
+let browse = {mode:"author", path:[]};
+const byYomi = (a, b) => a[2].localeCompare(b[2], "ja");
+function listHtml(works, limit){
+  return works.slice(0, limit).map(workRow).join("") + (works.length > limit ? `<button type="button" class="more" data-more="${limit + 100}">さらに表示（残り ${(works.length - limit).toLocaleString()} 件）</button>` : "");
+}
+async function renderBrowse(limit = 100){
+  const box = $("#browse"); if (!box) return;
+  let d;
+  try { d = await loadIndex(); } catch (e) { box.innerHTML = `<p class="find-empty">作品一覧を読み込めませんでした。通信できる場所でもう一度開いてください。</p>`; return; }
+  const seg = `<div class="seg">${[["author","作家"],["title","作品名"],["genre","分類"]].map(([m, l]) => `<button type="button" data-mode="${m}" aria-pressed="${browse.mode === m}">${l}</button>`).join("")}</div>`;
+  const avail = d.w.filter(w => !(w[6] & 1));
+  let html = seg, works = null;
+  const crumb = label => `<div class="crumb"><button type="button" data-back>戻る</button><span>${esc(label)}</span></div>`;
+  const [a, b] = browse.path;
+  if (browse.mode === "author"){
+    if (a == null){
+      const used = new Set(d.p.map(p => rowOf(head(p[2]))));
+      html += `<div class="gojuon">${ROWS.map(r => `<button type="button" data-go="${r[0]}" ${used.has(r[0]) ? "" : "disabled"}>${r[0]}</button>`).join("")}</div>`;
+    } else if (b == null){
+      const count = new Map(); avail.forEach(w => w[7].forEach(i => count.set(i, (count.get(i) || 0) + 1)));
+      const ps = d.p.map((p, i) => [i, p]).filter(([i, p]) => rowOf(head(p[2])) === a && count.get(i)).sort((x, y) => x[1][2].localeCompare(y[1][2], "ja"));
+      html += crumb(`作家・${a}行（${ps.length}人）`) + ps.map(([i, p]) => `<button type="button" class="au" data-go="${i}"><span>${esc(p[1])}</span><span>${count.get(i)}作品</span></button>`).join("");
+    } else {
+      works = avail.filter(w => w[7].includes(+b)).sort(byYomi);
+      html += crumb(`${d.p[+b][1]}（${works.length}作品）`);
+    }
+  } else if (browse.mode === "title"){
+    if (a == null){
+      html += `<div class="gojuon">${ROWS.map(r => `<button type="button" data-go="${r[0]}">${r[0]}</button>`).join("")}</div>`;
+    } else if (b == null){
+      const row = ROWS.find(r => r[0] === a)[1];
+      const cnt = c => avail.filter(w => head(w[2]) === c).length;
+      html += crumb(`作品名・${a}行`) + `<div class="gojuon">${[...row].map(c => { const n = cnt(c); return `<button type="button" data-go="${c}" ${n ? "" : "disabled"}>${c}</button>`; }).join("")}</div>`;
+    } else {
+      works = avail.filter(w => head(w[2]) === b).sort(byYomi);
+      html += crumb(`作品名・「${b}」で始まる（${works.length.toLocaleString()}作品）`);
+    }
+  } else {
+    if (a == null){
+      html += GENRES.map(([l, f], i) => `<button type="button" class="au" data-go="${i}"><span>${l}</span><span>${avail.filter(f).length.toLocaleString()}作品</span></button>`).join("");
+    } else {
+      works = avail.filter(GENRES[+a][1]).sort(byYomi);
+      html += crumb(`${GENRES[+a][0]}（${works.length.toLocaleString()}作品）`);
+    }
+  }
+  if (works) html += listHtml(works, limit);
+  box.innerHTML = html;
+  box.querySelectorAll("[data-mode]").forEach(x => x.onclick = () => { browse = {mode:x.dataset.mode, path:[]}; renderBrowse(); });
+  box.querySelectorAll("[data-go]").forEach(x => x.onclick = () => { browse.path.push(x.dataset.go); renderBrowse(); });
+  box.querySelectorAll("[data-back]").forEach(x => x.onclick = () => { browse.path.pop(); renderBrowse(); });
+  box.querySelectorAll("[data-more]").forEach(x => x.onclick = () => renderBrowse(+x.dataset.more));
+  box.querySelectorAll(".wk-go[data-id]").forEach(x => x.onclick = () => openWork(+x.dataset.id, x.parentElement));
 }
 function rowMessage(row, html){
   row.parentElement.querySelectorAll(".wk-msg").forEach(m => m.remove());
@@ -1352,6 +1466,7 @@ function fillInfo(){
   $("#infoWork").innerHTML = `<dt>題名</dt><dd>${esc(doc.title)}</dd>` +
     (doc.sub.length ? `<dt>副題など</dt><dd>${esc(doc.sub.join("　"))}</dd>` : "") +
     `<dt>著者</dt><dd>${esc(doc.author)}</dd><dt>本文</dt><dd>${doc.lines.length.toLocaleString()} 行</dd>`;
+  fillHints(); fillVersion();
   $("#infoColo").textContent = doc.colophon.length ? doc.colophon.join("\n") : "（底本の情報が見つかりませんでした）";
   const unk = [...r.unknown.entries()].sort((a, b) => b[1] - a[1]);
   $("#infoReport").innerHTML = [
@@ -1369,6 +1484,44 @@ function fillInfo(){
     };
     $("#infoJson").textContent = JSON.stringify(view, null, 2);
   } else $("#infoJson").textContent = "（ルビを含む行がありません）";
+}
+
+function fillVersion(){
+  const dev = APP_VERSION.startsWith("__");
+  const rows = [["アプリ", dev ? "Claudeの中の試作" : `青空縦組 v${APP_VERSION}（${APP_DATE}）`]];
+  if (IDX) rows.push(["作品一覧", `${IDX.v} 時点（${IDX.w.length.toLocaleString()}作品）`], ["取り込み元", `${IDX.mirror} 時点`]);
+  rows.push(["この版の変更", APP_NOTES.map(esc).join("<br>")]);
+  $("#infoVersion").innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("");
+}
+const HINT_GROUPS = [["note", "入力者の注"], ["color", "伝統色"], ["unit", "昔の単位"], ["time", "昔の時刻"]];
+function fillHints(){
+  const box = $("#infoHints");
+  const groups = HINT_GROUPS.map(([kind, label]) => {
+    const seen = new Map();
+    doc.kotoba.forEach((k, id) => { if (k.kind === kind && !seen.has(k.text + (k.note || ""))) seen.set(k.text + (k.note || ""), id); });
+    if (!seen.size) return "";
+    const items = [...seen.values()].map(id => {
+      const k = doc.kotoba[id];
+      const dot = k.kind === "color" ? `<span class="sw-dot" style="background:${k.hex}"></span>` : "";
+      return `<button type="button" data-hint="${id}">${dot}${esc(k.text)}</button>`;
+    }).join("");
+    return `<div class="hint-group"><b>${label}</b><div class="hint-items">${items}</div></div>`;
+  }).join("");
+  box.innerHTML = groups || `<p class="bm-empty">この作品では、まだ手がかりが見つかっていません。旧字体は、本文の字を長押しすると調べられます。</p>`;
+  box.querySelectorAll("[data-hint]").forEach(b => b.onclick = () => jumpToHint(+b.dataset.hint));
+}
+function jumpToHint(id){
+  const el = content.querySelector(`.kt-${id}`); if (!el) return;
+  closeSheets();
+  const r = el.getBoundingClientRect(), d = content.getBoundingClientRect().right - (r.left + r.right) / 2;
+  let best = 0, bd = Infinity;
+  lines.forEach((L, j) => { const dd = Math.abs(L.c - d); if (dd < bd){ bd = dd; best = j; } });
+  show(pageOfLine(best), 0);
+  setTimeout(() => {
+    const rr = el.getBoundingClientRect();
+    flashLine(best);
+    showCard(doc.kotoba[id], (rr.left + rr.right) / 2, (rr.top + rr.bottom) / 2);
+  }, 60);
 }
 
 function fillEngineInfo(){
@@ -1405,7 +1558,7 @@ $("#btnOpen").onclick = $("#btnOpen2").onclick = () => $("#file").click();
 $("#btnFind").onclick = () => { openSheet("#sheetFind"); renderFind(); loadIndex().catch(() => {}); };
 $("#file").onchange = e => { const f = e.target.files[0]; if (f) openFile(f); e.target.value = ""; };
 $("#btnView").onclick = () => { $("#sheetView").hidden ? openDock() : closeDock(); };
-$("#btnInfo").onclick = () => openSheet("#sheetInfo");
+$("#btnInfo").onclick = () => { openSheet("#sheetInfo"); fillVersion(); loadIndex().then(fillVersion, () => {}); };
 $("#btnMark").onclick = () => { openSheet("#sheetMark"); fillMarks(); };
 $("#bmAdd").onclick = toggleMark;
 $("#btnSample").onclick = () => { store.set("aozora:last", null); loadText(SAMPLE, false); closeSheets(); };
@@ -1467,6 +1620,12 @@ function cardHtml(k){
     return `<div class="k-kind">昔の時刻</div><div class="k-word">${esc(k.text)}<span class="k-yomi">${ushi ? "うしみつ" : esc(e[0] + "のこく")}</span></div>
       <div class="k-main">${ushi ? "午前2時〜2時半ごろ" : e[1]}</div>
       <div class="k-sub">${ushi ? "丑の刻（午前1時〜3時ごろ）を四つに分けた三つ目。真夜中のいちばん静かな時分です。" : "昔は一日を十二支で十二に分けて、時刻を表していました。"}</div>`;
+  }
+  if (k.kind === "note"){
+    const m = k.note.match(/^「(.+)」は底本では「(.+)」$/);
+    const body = m ? `底本では「${esc(m[2])}」となっています。入力者が「${esc(m[1])}」に改めました。`
+      : /ママ/.test(k.note) ? `底本のとおりに入力した箇所です（「ママ」は、誤りのように見えても原文のままという印です）。` : esc(k.note);
+    return `<div class="k-kind">入力者の注</div><div class="k-word">${esc(k.text)}</div><div class="k-sub" style="color:var(--ink)">${body}</div>`;
   }
   if (k.kind === "kyuji") return `<div class="k-kind">旧字体</div><div class="k-big">${esc(k.text)}<span>→</span>${esc(k.shin)}</div>
     <div class="k-sub">「${esc(k.text)}」は「${esc(k.shin)}」の旧字体です。原文の字はそのまま残しています。</div>`;
