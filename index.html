@@ -60,7 +60,7 @@ body{background:var(--paper);color:var(--ink);font-family:var(--f-ui);overflow:h
 .work b{color:var(--ink);font-weight:500;margin-right:.6em}
 .tools{display:flex;gap:4px}
 button{font:inherit;color:inherit;background:none;border:1px solid transparent;border-radius:6px;cursor:pointer}
-.tools button{font-size:13px;padding:6px 9px}
+.tools button{font-size:13px;padding:6px 10px}
 .tools button:hover{border-color:var(--rule)}
 button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .pageno{font-variant-numeric:tabular-nums;min-width:5.5em}
@@ -79,18 +79,22 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 #frame.scrolling #clip{writing-mode:vertical-rl;overflow-x:auto;overflow-y:hidden;overscroll-behavior:contain;scrollbar-width:none;touch-action:pan-x}
 #frame.scrolling #clip::-webkit-scrollbar{display:none}
 #frame.scrolling #content{position:relative;top:auto;right:auto;transform:none!important}
+#clip2{position:absolute;top:0;height:100%;overflow:hidden}
+#fold{position:absolute;top:calc(-.4 * var(--my,12px));bottom:calc(-.4 * var(--my,12px));pointer-events:none;
+  background:linear-gradient(90deg,transparent,rgba(0,0,0,.035) 30%,rgba(0,0,0,.08) 50%,rgba(0,0,0,.035) 70%,transparent)}
+#frame:not(.spread) #clip2,#frame:not(.spread) #fold,#frame:not(.spread) #nombre2{display:none}
 #ghost{position:absolute;top:0;right:0;height:100%;overflow:hidden;pointer-events:none;background-color:var(--paper);background-image:var(--grain,none);background-size:var(--grain-size,auto);background-attachment:fixed}
 #app{background-color:var(--paper);background-image:var(--grain,none);background-size:var(--grain-size,auto)}
-#content,#ghostContent{position:absolute;top:0;right:0;height:100%;
+#content,#ghostContent,#content2{position:absolute;top:0;right:0;height:100%;
   writing-mode:vertical-rl;-webkit-writing-mode:vertical-rl;
   font-family:var(--f-text);color:var(--ink);
   line-break:strict;word-break:normal;
   text-spacing-trim:space-first;hanging-punctuation:allow-end;
   font-kerning:normal}
-#content p,#ghostContent p{margin:0}
-#content ruby,#ghostContent ruby{ruby-position:over}
-#content rt,#ghostContent rt{font-size:.5em;line-height:1;font-weight:400}
-#content rp,#ghostContent rp{display:none}
+#content p,#ghostContent p,#content2 p{margin:0}
+#content ruby,#ghostContent ruby,#content2 ruby{ruby-position:over}
+#content rt,#ghostContent rt,#content2 rt{font-size:.5em;line-height:1;font-weight:400}
+#content rp,#ghostContent rp,#content2 rp{display:none}
 .tcy{text-combine-upright:all;-webkit-text-combine:horizontal}
 .h-l{font-size:1.45em;font-weight:600}
 .h-m{font-size:1.2em;font-weight:600}
@@ -119,7 +123,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .ul-wavy{text-decoration:overline wavy}
 .bold{font-weight:600}
 /* 組版エンジン用 */
-#content.eng,#ghostContent.eng{text-spacing-trim:space-all;hanging-punctuation:none}
+#content.eng,#ghostContent.eng,#content2.eng{text-spacing-trim:space-all;hanging-punctuation:none}
 .vl{display:block;white-space:nowrap}
 .hw{display:inline-block;inline-size:.5em;letter-spacing:0;margin-inline-end:var(--ls,0)}
 .hw.ho{position:relative;top:-.5em}
@@ -231,6 +235,7 @@ details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
   font-family:var(--f-text);font-size:11px;line-height:1;color:var(--ink-soft);pointer-events:none;opacity:0;transition:opacity .25s}
 #app.immersed.folios .folio{opacity:1}
 .folio .nombre{font-variant-numeric:tabular-nums;letter-spacing:.05em}
+#frame.spread .folio .hashira{letter-spacing:.8em}
 .folio .hashira{flex:1;text-align:center;letter-spacing:.6em;padding-left:.6em;white-space:nowrap;overflow:hidden;text-overflow:clip}
 @media (prefers-reduced-motion:reduce){.folio{transition:none}}
 /* おすすめ */
@@ -255,22 +260,10 @@ details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
 .tour-card .btnrow button{border:1px solid var(--rule);padding:8px 14px}
 .tour-card .btnrow button.primary{border-color:var(--accent);color:var(--accent)}
 .tour-hl{position:absolute;border:2px solid #f4f6f4;border-radius:10px;pointer-events:none;box-shadow:0 0 0 4px rgba(244,246,244,.25)}
-/* 朗読 */
-.speakbar{position:absolute;left:0;right:0;bottom:0;z-index:7;min-height:52px;display:flex;flex-wrap:wrap;align-items:center;gap:6px;justify-content:center;
-  background:var(--veil);border-top:1px solid var(--rule);padding-block:6px calc(6px + env(safe-area-inset-bottom,0px));
-  padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px))}
-.speakbar button{border:1px solid var(--rule)!important;padding:7px 10px;font-size:13px}
-.speakbar .sp-main{border-color:var(--accent)!important;color:var(--accent);min-width:5em}
-.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
-.sp-rate{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--ink-soft)}
-.sp-rate select{font:inherit;font-size:13px;color:var(--ink);background:var(--paper);border:1px solid var(--rule);border-radius:6px;padding:5px 4px}
-#app.speaking .bar.bottom{visibility:hidden}
-#app.speaking #stage{padding-bottom:calc(var(--spbar,60px) + var(--my,12px))}
-.speak-hl{position:absolute;top:-4px;bottom:-4px;border-radius:6px;pointer-events:none;background:color-mix(in srgb,var(--accent) 14%,transparent);z-index:0;transition:left .2s,width .2s}
-@media (prefers-reduced-motion:reduce){.speak-hl{transition:none}}
 /* しおり */
 .ribbon{position:absolute;top:-8px;right:calc(-.55 * var(--mx,20px) - 5px);width:10px;height:40px;background:var(--accent);pointer-events:none;z-index:2;
   clip-path:polygon(0 0,100% 0,100% 100%,50% 78%,0 100%)}
+.ribbon.left{right:auto;left:calc(-.55 * var(--mx,20px) - 5px)}
 .flash{position:absolute;top:-6px;bottom:-6px;background:var(--accent);opacity:0;pointer-events:none;border-radius:4px;z-index:1}
 .hints .kt.nt{text-decoration:none;position:relative}
 .hints .kt.nt::before{content:"＊";position:absolute;top:-.35em;right:-.95em;font-size:.55em;line-height:1;color:var(--accent);font-family:var(--f-ui)}
@@ -345,13 +338,12 @@ details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
       <button id="btnFind" type="button">探す</button>
       <button id="btnView" type="button">表示</button>
       <button id="btnMark" type="button">目次</button>
-      <button id="btnSpeak" type="button">朗読</button>
       <button id="btnInfo" type="button">情報</button>
     </nav>
   </header>
 
   <main id="stage" aria-label="本文">
-    <div id="frame"><div id="clip"><div id="content"></div></div><div class="ribbon" id="ribbon" hidden></div><div class="folio" id="folio" aria-hidden="true"><span class="nombre" id="nombre"></span><span class="hashira" id="hashira"></span></div><div id="ghost" aria-hidden="true" hidden><div id="ghostContent"></div></div></div>
+    <div id="frame"><div id="clip"><div id="content"></div></div><div id="fold" aria-hidden="true"></div><div id="clip2" aria-hidden="true"><div id="content2"></div></div><div class="ribbon" id="ribbon" hidden></div><div class="folio" id="folio" aria-hidden="true"><span class="nombre" id="nombre"></span><span class="hashira" id="hashira"></span><span class="nombre" id="nombre2"></span></div><div id="ghost" aria-hidden="true" hidden><div id="ghostContent"></div></div></div>
   </main>
 
   <footer class="bar bottom">
@@ -424,6 +416,11 @@ details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
           <button type="button" data-turn="scroll">スクロール</button>
         </div>
         <p class="note">選んだら、本文の左右を押して頁を送ってみてください。「スクロール」は、指でなぞった分だけ本文が流れます。作品ごとに覚えます。</p>
+        <div class="turns" id="spreadRow">
+          <button type="button" data-spread="auto">広い画面は見開き</button>
+          <button type="button" data-spread="off">いつも一頁ずつ</button>
+        </div>
+        <p class="note">パソコンや横向きのタブレットでは、本のように右と左の二頁を並べます。スクロールのときは一頁ずつです。</p>
       </div>
       <div class="pane" data-pane="kumi">
         <div class="turns" id="engines">
@@ -505,15 +502,6 @@ details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
       </div>
     </div>
   </div>
-  <div class="speakbar" id="speakBar" hidden role="region" aria-label="朗読">
-    <button type="button" id="spPrev" aria-label="前の文へ">前へ</button>
-    <button type="button" id="spPlay" class="sp-main">一時停止</button>
-    <button type="button" id="spNext" aria-label="次の文へ">次へ</button>
-    <label class="sp-rate"><span class="sr">速さ</span>
-      <select id="spRate"><option value="0.8">ゆっくり</option><option value="1" selected>ふつう</option><option value="1.25">少し速く</option><option value="1.5">速く</option></select>
-    </label>
-    <button type="button" id="spStop">終わる</button>
-  </div>
   <div class="toast" id="toast" hidden role="status"></div>
   <div class="drop" id="drop" hidden>ここに置くと開きます（.txt / .zip）</div>
   <input id="file" type="file" accept=".txt,.zip,text/plain,application/zip" hidden>
@@ -568,12 +556,12 @@ const SAMPLE = [
 ].join("\n");
 
 /* ---------- 版情報（GitHubに置くときに書き換わる） ---------- */
-const APP_VERSION = "14", APP_DATE = "2026-11-08";
+const APP_VERSION = "15", APP_DATE = "2026-11-08";
 const APP_NOTES = [
-  "上の帯に「朗読」を加えました。今の頁から、ルビの読みどおりに読み上げます",
-  "読み上げている行をうっすら光らせ、頁の終わりまで来ると自動で次の頁へ送ります",
-  "朗読中は下に操作の帯が出て、一時停止・前の文・次の文・速さの切り替えができます。読んでいる間は画面が消えないようにします"
-];
+  "パソコンや横向きのタブレットでは、本のように右と左の二頁を並べる「見開き」で読めるようにしました",
+  "見開きでは二頁ずつめくり、柱とノンブルも左右の頁それぞれに付きます。「表示」→「めくり」で、いつも一頁ずつにも戻せます",
+  "試していた「朗読」は、読み上げが機械的で作品の味わいを損なうため、取り外しました"
+]
 
 /* ---------- 小道具 ---------- */
 const $ = s => document.querySelector(s);
@@ -1128,17 +1116,17 @@ function renderDocEngine(doc, N){
 function renderDoc(doc, N){ return S.engine ? renderDocEngine(doc, N) : renderDocBrowser(doc); }
 
 /* ---------- 版面と頁割り ---------- */
-const S = Object.assign({face:"Shippori Mincho", size:19, lh:1.85, chars:40, turn:"fade", light:"aozora", dark:"yoru", mode:"auto", contrast:100, engine:true, hang:true, margin:1.5, hints:true, folio:true, paper:"joshitsu"}, store.get("aozora:settings", {}));
+const S = Object.assign({face:"Shippori Mincho", size:19, lh:1.85, chars:40, turn:"fade", light:"aozora", dark:"yoru", mode:"auto", contrast:100, engine:true, hang:true, margin:1.5, hints:true, folio:true, paper:"joshitsu", spread:"auto"}, store.get("aozora:settings", {}));
 const app = $("#app"), stage = $("#stage"), frame = $("#frame"), clip = $("#clip"), content = $("#content");
-const ghost = $("#ghost"), ghostContent = $("#ghostContent");
+const ghost = $("#ghost"), ghostContent = $("#ghostContent"), clip2 = $("#clip2"), content2 = $("#content2"), fold = $("#fold");
 let turn = S.turn, anims = [];
-let doc = null, docKey = "", pages = [], lines = [], pageIdx = 0, renderedSig = "", frameW = 0;
+let doc = null, docKey = "", pages = [], lines = [], pageIdx = 0, renderedSig = "", frameW = 0, spread = false, gutter = 0, content2Sig = "";
 
 function applyType(){
   content.style.fontFamily = `"${S.face}","Shippori Mincho","Noto Serif JP","Hiragino Mincho ProN","Yu Mincho",serif`;
   content.style.fontSize = S.size + "px";
   content.style.lineHeight = S.lh;
-  ghostContent.style.cssText = content.style.cssText;
+  ghostContent.style.cssText = content2.style.cssText = content.style.cssText;
 }
 function measureEm(){
   // 実際に描かれる一字の大きさを測る（スマホの文字拡大設定で指定より大きく描かれることがある）
@@ -1162,8 +1150,14 @@ function frameSize(){
   const N = Math.max(8, Math.floor(Math.min(availH - room, em * S.chars) / em));
   const H = N * em;
   const P = em * S.lh;                                // 一行分の幅。版面の幅を行の幅の倍数にして左右の釣り合いをとる
-  const W = Math.max(P * 2, Math.floor(Math.min(availW, P * 42) / P + 0.02) * P);
-  return {W, H, N, room};
+  const fit = w => Math.max(P * 2, Math.floor(Math.min(w, P * 42) / P + 0.02) * P);
+  // 見開き：横に広い画面では、右と左に一頁ずつ並べる
+  if (S.spread !== "off" && turn !== "scroll" && availW >= 760 && availW > availH * 1.15){
+    const G = Math.round(Math.max(2 * em, mx * 1.6));
+    const W = fit((availW - G) / 2);
+    if (W >= P * 8) return {W, H, N, room, sp:true, G};
+  }
+  return {W: fit(availW), H, N, room, sp:false, G:0};
 }
 
 function measureLines(){
@@ -1272,20 +1266,25 @@ function layout(keepAnchor){
   if (!doc) return;
   const anchor = keepAnchor ?? (pages.length && lines.length ? curPos() : {pi:-1, f:0});
   applyType();
-  const {W, H, N, room} = frameSize();
-  frame.style.width = W + "px"; frame.style.height = (H + room) + "px";
+  const {W, H, N, room, sp, G} = frameSize();
+  spread = sp; gutter = G;
+  frame.classList.toggle("spread", sp);
+  frame.style.width = (sp ? W * 2 + G : W) + "px"; frame.style.height = (H + room) + "px";
   frameW = W;
+  if (sp){ clip2.style.right = (W + G) + "px"; fold.style.right = W + "px"; fold.style.width = G + "px"; }
   frame.classList.toggle("scrolling", turn === "scroll");
   clip.style.width = W + "px";
   const sig = [docKey, N, S.face, S.engine, S.hang].join("|");
   if (sig !== renderedSig){
     measureFont = `100px "${S.face}", "Shippori Mincho", serif`;
-    content.className = ghostContent.className = (S.engine ? "eng" : "") + (S.hints ? " hints" : "");
+    content.className = ghostContent.className = content2.className = (S.engine ? "eng" : "") + (S.hints ? " hints" : "");
     content.innerHTML = renderDoc(doc, N);
     ghostContent.innerHTML = content.innerHTML;
-    renderedSig = sig;
+    renderedSig = sig; content2Sig = "";
     fillEngineInfo();
   }
+  if (sp && content2Sig !== renderedSig){ content2.innerHTML = content.innerHTML; content2Sig = renderedSig; }
+  else if (!sp && content2Sig){ content2.innerHTML = ""; content2Sig = ""; }
   lines = measureLines();
   pages = paginate(W);
   const j = lineOfPos(anchor);
@@ -1317,6 +1316,24 @@ function animateTurn(oldW, oldT, dir){
     {duration:t.ms, easing:t.ease}));
   anims[0].onfinish = () => { ghost.hidden = true; };
 }
+/* 見開きのめくり：二頁をそっと消してから、次の二頁を浮かべる */
+function spreadTurn(paint, dir){
+  anims.forEach(a => a.cancel()); anims = []; ghost.hidden = true;
+  const t = TURNS[turn];
+  if (!t || reduceMotion()){ paint(); return; }
+  const off = dir * t.dx / 2, els = [clip, clip2];
+  const out = els.map(el => el.animate(
+    [{opacity:1, transform:"translateX(0)", filter:"blur(0)"}, {opacity:0, transform:`translateX(${off}px)`, filter:`blur(${t.blur}px)`}],
+    {duration:t.ms * 0.4, easing:"ease-in", fill:"forwards"}));
+  anims = out;
+  out[0].onfinish = () => {
+    if (anims !== out) return;
+    paint(); out.forEach(a => a.cancel());
+    anims = els.map(el => el.animate(
+      [{opacity:0, transform:`translateX(${-off}px)`, filter:`blur(${t.blur}px)`}, {opacity:1, transform:"translateX(0)", filter:"blur(0)"}],
+      {duration:t.ms * 0.6, easing:t.ease}));
+  };
+}
 /* スクロール表示：本文の右端から何pxのところが見えているか */
 const scrollStart = () => content.getBoundingClientRect().right - clip.getBoundingClientRect().right;
 function pageAtScroll(){
@@ -1327,12 +1344,13 @@ function pageAtScroll(){
 function updateFolio(){
   if (!doc) return;
   $("#hashira").textContent = doc.title;
-  $("#nombre").textContent = pages.length ? String(pageIdx + 1) : "";
+  const q = spread && pages[pageIdx + 1];
+  $("#nombre").textContent = !pages.length ? "" : spread ? (q ? String(pageIdx + 2) : "") : String(pageIdx + 1);
+  $("#nombre2").textContent = spread && pages.length ? String(pageIdx + 1) : "";
 }
 function updateStatus(){
-  if (typeof SP !== "undefined" && SP.on) setTimeout(drawSpeakHL, 0);
   updateFolio();
-  $("#pageNo").textContent = `${pageIdx + 1} / ${pages.length}`;
+  $("#pageNo").textContent = spread && pages[pageIdx + 1] ? `${pageIdx + 1}–${pageIdx + 2} / ${pages.length}` : `${pageIdx + 1} / ${pages.length}`;
   $("#trackFill").style.width = (pages.length > 1 ? pageIdx / (pages.length - 1) * 100 : 100) + "%";
   updateRibbon();
 }
@@ -1363,19 +1381,33 @@ function show(i, dir){
   }
   const was = pageIdx, oldW = clip.style.width, oldT = content.style.transform;
   pageIdx = Math.max(0, Math.min(pages.length - 1, i));
-  if (dir && pageIdx !== was) animateTurn(oldW, oldT, dir); else { anims.forEach(a => a.cancel()); anims = []; ghost.hidden = true; }
+  if (spread) pageIdx -= pageIdx % 2;              // 見開きは 1–2、3–4 … の組で開く
+  const paint = () => {
+    const p = pages[pageIdx]; if (!p) return;
+    clip.style.width = Math.max(1, Math.ceil(p.e - p.s)) + "px";
+    content.style.transform = `translateX(${p.s}px)`;
+    if (spread){
+      const q = pages[pageIdx + 1];
+      clip2.style.visibility = q ? "" : "hidden";
+      if (q){ clip2.style.width = Math.max(1, Math.ceil(q.e - q.s)) + "px"; content2.style.transform = `translateX(${q.s}px)`; }
+    }
+  };
+  if (spread){
+    if (dir && pageIdx !== was) spreadTurn(paint, dir); else { anims.forEach(a => a.cancel()); anims = []; ghost.hidden = true; paint(); }
+  } else {
+    if (dir && pageIdx !== was) animateTurn(oldW, oldT, dir); else { anims.forEach(a => a.cancel()); anims = []; ghost.hidden = true; }
+    paint();
+  }
   const p = pages[pageIdx];
-  clip.style.width = Math.max(1, Math.ceil(p.e - p.s)) + "px";
-  content.style.transform = `translateX(${p.s}px)`;
   if (docKey && lines.length) store.set("aozora:pos2:" + docKey, posOfLine(p.first));
   updateStatus();
 }
-const next = () => show(pageIdx + 1, 1);
-const prev = () => show(pageIdx - 1, -1);
+const step = () => spread ? 2 : 1;
+const next = () => show(pageIdx + step(), 1);
+const prev = () => show(pageIdx - step(), -1);
 
 /* ---------- 作品の読み込み ---------- */
 function loadText(text, persist){
-  if (typeof SP !== "undefined" && SP.on) stopSpeak();
   doc = parseAozora(text);
   annotateDoc(doc);
   docKey = doc.title + "／" + doc.author;
@@ -1660,8 +1692,10 @@ function marksOnPage(i){
   return marks().filter(m => { const j = lineOfPos(m); return j >= a && j < b; });
 }
 function updateRibbon(){
-  const on = marksOnPage(pageIdx).length > 0;
+  const onR = marksOnPage(pageIdx).length > 0, onL = spread && marksOnPage(pageIdx + 1).length > 0;
+  const on = onR || onL;
   $("#ribbon").hidden = !on;
+  $("#ribbon").classList.toggle("left", !onR && onL);
   const btn = $("#bmAdd");
   if (btn) btn.textContent = on ? "この頁のしおりを外す" : "この頁にしおりを挟む";
 }
@@ -1697,7 +1731,7 @@ function fillMarks(){
   updateRibbon();
 }
 function toggleMark(){
-  const here = marksOnPage(pageIdx);
+  const here = marksOnPage(pageIdx).concat(spread ? marksOnPage(pageIdx + 1) : []);
   let all = marks();
   if (here.length){
     all = all.filter(m => !here.some(h => h.t === m.t));
@@ -1709,134 +1743,6 @@ function toggleMark(){
   }
   saveMarks(all); fillMarks();
 }
-
-/* ---------- 朗読：ルビの読みで読み上げ、読んでいる行を光らせて頁を送る ---------- */
-const SP = {on:false, playing:false, list:[], at:0, voice:null, rate:1, lock:null, hl:[]};
-const synth = window.speechSynthesis;
-function jaVoice(){
-  if (!synth) return null;
-  const vs = synth.getVoices().filter(v => /^ja/i.test(v.lang));
-  return vs.find(v => /google/i.test(v.name)) || vs.find(v => v.localService) || vs[0] || null;
-}
-// 踊り字をくり返しの字に直す（読み上げ用）
-function expandOdoriji(t){
-  const dak = c => ({"か":"が","き":"ぎ","く":"ぐ","け":"げ","こ":"ご","さ":"ざ","し":"じ","す":"ず","せ":"ぜ","そ":"ぞ","た":"だ","ち":"ぢ","つ":"づ","て":"で","と":"ど","は":"ば","ひ":"び","ふ":"ぶ","へ":"べ","ほ":"ぼ"}[c] || c);
-  return t.replace(/(..)〳〵/g, "$1$1").replace(/(.)(.)〴〵/g, (m, a, b) => a + b + dak(a) + b)
-          .replace(/(.)ゝ/g, "$1$1").replace(/(.)ゞ/g, (m, a) => a + dak(a));
-}
-function buildSpeech(){
-  const list = [];
-  doc.lines.forEach((L, pi) => {
-    if (!L.cells.length) return;
-    const ruby = new Map(), word = new Map();
-    for (const sp of L.spans){
-      if (sp.t === "ruby") ruby.set(sp.s, sp);
-      else if (sp.t === "kt" && / wd/.test(sp.c)){ const k = doc.kotoba[+sp.c.match(/kt-(\d+)/)[1]]; if (k && k.base === L.cells.slice(sp.s, sp.e).map(c => c.ch).join("") && [...k.base].length >= 2) word.set(sp.s, {e:sp.e, yomi:k.yomi}); }
-    }
-    let text = "", start = 0, q = 0;
-    const push = end => { const t = expandOdoriji(text).replace(/[\s　]/g, ""); if (t.replace(/[「」『』（）〔〕、。・…―─]/g, "")) list.push({pi, a:start, b:end, text:t}); text = ""; start = end; };
-    while (q < L.cells.length){
-      if (ruby.has(q)){ const sp = ruby.get(q); text += sp.rt; q = sp.e; }
-      else if (word.has(q)){ const w = word.get(q); text += w.yomi; q = w.e; }
-      else { text += L.cells[q].ch; q++; }
-      const c = L.cells[q - 1].ch, nx = L.cells[q] ? L.cells[q].ch : "";
-      const endSentence = /[。！？!?]/.test(c) && !/[」』）。！？]/.test(nx);
-      const closeAfter = /[」』）]/.test(c) && /[。！？]/.test(L.cells[q - 2] ? L.cells[q - 2].ch : "");
-      if (endSentence || closeAfter || (text.length > 90 && /[、，]/.test(c))) push(q);
-    }
-    if (text) push(L.cells.length);
-  });
-  return list;
-}
-function paraLines(){
-  const m = new Map();
-  lines.forEach((L, j) => { if (L.pi < 0) return; const r = m.get(L.pi); if (r) r[1] = j; else m.set(L.pi, [j, j]); });
-  return m;
-}
-function sentenceLines(it){
-  const r = paraLines().get(it.pi); if (!r) return [];
-  const n = r[1] - r[0] + 1, br = ENG.breaks[it.pi];
-  let k1, k2;
-  if (S.engine && br && br.length === n){
-    k1 = 0; k2 = 0;
-    br.forEach((c, k) => { if (c <= it.a) k1 = k; if (c <= it.b - 1) k2 = k; });
-  } else {
-    const N = doc.lines[it.pi].cells.length || 1;
-    k1 = Math.min(n - 1, Math.floor(it.a / N * n)); k2 = Math.min(n - 1, Math.floor((it.b - 1) / N * n));
-  }
-  const out = []; for (let k = k1; k <= k2; k++) out.push(r[0] + k);
-  return out;
-}
-function drawSpeakHL(){
-  SP.hl.forEach(e => e.remove()); SP.hl = [];
-  if (!SP.on || !SP.list[SP.at]) return;
-  const js = sentenceLines(SP.list[SP.at]);
-  const p = pages[pageIdx]; if (!p) return;
-  const last = pages[pageIdx + 1] ? pages[pageIdx + 1].first : lines.length;
-  const fr = frame.getBoundingClientRect(), cr = content.getBoundingClientRect();
-  for (const j of js){
-    if (j < p.first || j >= last) continue;
-    const L = lines[j], half = L.fs * S.lh / 2;
-    const el = document.createElement("div"); el.className = "speak-hl";
-    el.style.left = (cr.right - L.c - half - fr.left) + "px"; el.style.width = (half * 2) + "px";
-    frame.insertBefore(el, frame.firstChild); SP.hl.push(el);
-  }
-}
-function followSpeech(){
-  const js = sentenceLines(SP.list[SP.at]); if (!js.length) return;
-  const pg = pageOfLine(js[0]);
-  if (pg !== pageIdx) show(pg, pg > pageIdx ? 1 : -1);
-  drawSpeakHL();
-}
-function speakAt(i){
-  if (!synth) return;
-  SP.at = Math.max(0, Math.min(SP.list.length - 1, i));
-  synth.cancel();
-  const it = SP.list[SP.at]; if (!it) return stopSpeak();
-  followSpeech();
-  const u = new SpeechSynthesisUtterance(it.text);
-  u.lang = "ja-JP"; u.rate = SP.rate; if (SP.voice) u.voice = SP.voice;
-  const token = SP.token = Math.random();
-  u.onend = () => { if (SP.token !== token || !SP.playing) return; if (SP.at + 1 < SP.list.length) speakAt(SP.at + 1); else { stopSpeak(); toast("最後まで読み終えました。"); } };
-  u.onerror = e => { if (SP.token === token && e.error !== "interrupted" && e.error !== "canceled"){ SP.playing = false; syncSpeakUI(); } };
-  SP.playing = true; syncSpeakUI();
-  synth.speak(u);
-}
-function syncSpeakUI(){
-  $("#spPlay").textContent = SP.playing ? "一時停止" : "再生";
-  app.classList.toggle("speaking", SP.on);
-  $("#speakBar").hidden = !SP.on;
-  if (SP.on) requestAnimationFrame(() => app.style.setProperty("--spbar", $("#speakBar").offsetHeight + "px"));
-}
-async function startSpeak(){
-  if (!synth || !window.SpeechSynthesisUtterance){ toast("この端末のブラウザは読み上げに対応していません。"); return; }
-  SP.voice = jaVoice();
-  if (!SP.voice && synth.getVoices().length){ toast("この端末には日本語の読み上げ音声が見つかりません。端末の設定で日本語の音声を入れると使えます。"); return; }
-  SP.list = buildSpeech();
-  if (!SP.list.length){ toast("読み上げる本文がありません。"); return; }
-  // 今の頁の最初の行から始める
-  const first = pages[pageIdx] ? pages[pageIdx].first : 0;
-  let start = SP.list.findIndex(it => { const js = sentenceLines(it); return js.length && js[js.length - 1] >= first; });
-  if (start < 0) start = 0;
-  SP.on = true; SP.rate = +$("#spRate").value;
-  closeSheets(); app.classList.remove("immersed");
-  try { SP.lock = navigator.wakeLock ? await navigator.wakeLock.request("screen") : null; } catch (e) { SP.lock = null; }
-  syncSpeakUI(); speakAt(start);
-}
-function stopSpeak(){
-  SP.on = false; SP.playing = false; SP.token = 0;
-  if (synth) synth.cancel();
-  if (SP.lock){ SP.lock.release().catch(() => {}); SP.lock = null; }
-  drawSpeakHL(); syncSpeakUI();
-}
-$("#btnSpeak").onclick = () => { SP.on ? stopSpeak() : startSpeak(); };
-$("#spStop").onclick = stopSpeak;
-$("#spPlay").onclick = () => { if (SP.playing){ SP.playing = false; SP.token = 0; synth.cancel(); syncSpeakUI(); } else speakAt(SP.at); };
-$("#spPrev").onclick = () => speakAt(SP.at - 1);
-$("#spNext").onclick = () => speakAt(SP.at + 1);
-$("#spRate").onchange = e => { SP.rate = +e.target.value; if (SP.playing) speakAt(SP.at); };
-if (synth && synth.addEventListener) synth.addEventListener("voiceschanged", () => { if (!SP.voice) SP.voice = jaVoice(); });
-document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && SP.on && SP.lock === null && navigator.wakeLock) navigator.wakeLock.request("screen").then(l => SP.lock = l, () => {}); });
 
 /* ---------- 情報パネル ---------- */
 function fillInfo(){
@@ -1896,7 +1802,8 @@ function jumpToHint(id){
   lines.forEach((L, j) => { const dd = Math.abs(L.c - d); if (dd < bd){ bd = dd; best = j; } });
   show(pageOfLine(best), 0);
   setTimeout(() => {
-    const rr = el.getBoundingClientRect();
+    const el2 = spread && pageOfLine(best) === pageIdx + 1 ? content2.querySelector(`.kt-${id}`) || el : el;
+    const rr = el2.getBoundingClientRect();
     flashLine(best);
     showCard(doc.kotoba[id], (rr.left + rr.right) / 2, (rr.top + rr.bottom) / 2);
   }, 60);
@@ -1945,16 +1852,19 @@ document.querySelectorAll("[data-close]").forEach(b => b.onclick = closeSheets);
 
 let swiped = false, tapTimer = 0, tapAt = 0, tapX = 0, tapY = 0;
 function lineAtX(clientX){
-  const p = pages[pageIdx]; if (!p) return -1;
-  const d = content.getBoundingClientRect().right - clientX;
-  const last = pages[pageIdx + 1] ? pages[pageIdx + 1].first : lines.length;
+  let k = pageIdx, el = content;
+  if (spread && pages[pageIdx + 1] && clientX < clip2.getBoundingClientRect().right + gutter / 2){ k = pageIdx + 1; el = content2; }
+  const p = pages[k]; if (!p) return -1;
+  const d = el.getBoundingClientRect().right - clientX;
+  const last = pages[k + 1] ? pages[k + 1].first : lines.length;
   let best = -1, bd = Infinity;
   for (let j = p.first; j < last; j++){ const dd = Math.abs(lines[j].c - d); if (dd < bd){ bd = dd; best = j; } }
   return best;
 }
 function flashLine(j){
   if (reduceMotion()) return;
-  const L = lines[j], fr = frame.getBoundingClientRect(), cr = content.getBoundingClientRect();
+  const onLeft = spread && pageOfLine(j) === pageIdx + 1;
+  const L = lines[j], fr = frame.getBoundingClientRect(), cr = (onLeft ? content2 : content).getBoundingClientRect();
   const half = L.fs * S.lh / 2;
   const el = document.createElement("div");
   el.className = "flash";
@@ -2243,7 +2153,7 @@ function applyPreset(id){
 const TOUR = [
   {title:"頁のめくり方", text:"本文の左を押すと次の頁、右を押すと前の頁へ進みます。指で横になぞってもめくれます。中央を押すと上下の帯が消えて、本を読むような画面になります。", zones:true},
   {title:"しおりと、ことばの手がかり", text:"本文の中央あたりを二回続けて押すと、その行にしおりを挟めます。点線の印のある言葉を押すと、色や昔の単位の手がかりが出ます。どの字でも長押しすると、旧字体などを調べられます。"},
-  {title:"上の帯のボタン", text:"「探す」で作品を探して読み始められます。「表示」で文字や紙の見え方を、「目次」で章への移動や挟んだしおりを、「朗読」で今の頁からの読み上げを、「情報」で作品の底本やこの案内を見られます。", hl:".bar.top .tools"},
+  {title:"上の帯のボタン", text:"「探す」で作品を探して読み始められます。「表示」で文字や紙の見え方を、「目次」で章への移動や挟んだしおりを、「情報」で作品の底本やこの案内を見られます。", hl:".bar.top .tools"},
   {title:"まずは、読む場面を選びましょう", text:"「表示」の「おすすめ」で読む場面を選ぶと、文字の大きさや配色がまとめて決まります。今から開いてみますか？", last:true}
 ];
 let tourAt = 0;
@@ -2284,7 +2194,8 @@ function syncSettings(){
   document.querySelectorAll("#folioRow button").forEach(b => b.setAttribute("aria-pressed", String((b.dataset.folio === "on") === !!S.folio)));
   app.classList.toggle("folios", !!S.folio);
   document.querySelectorAll("#hintsRow button").forEach(b => b.setAttribute("aria-pressed", String((b.dataset.hints === "on") === !!S.hints)));
-  content.classList.toggle("hints", !!S.hints); ghostContent.classList.toggle("hints", !!S.hints);
+  content.classList.toggle("hints", !!S.hints); ghostContent.classList.toggle("hints", !!S.hints); content2.classList.toggle("hints", !!S.hints);
+  document.querySelectorAll("#spreadRow button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.spread === (S.spread || "auto"))));
   document.querySelectorAll("#engines button").forEach(b => b.setAttribute("aria-pressed", String((b.dataset.engine === "on") === !!S.engine)));
   document.querySelectorAll("#hangs button").forEach(b => { b.setAttribute("aria-pressed", String((b.dataset.hang === "on") === !!S.hang)); b.disabled = !S.engine; });
   $("#rngContrast").value = S.contrast; $("#outContrast").textContent = S.contrast + "%";
@@ -2307,6 +2218,7 @@ document.querySelectorAll("#folioRow button").forEach(b => b.onclick = () => { S
 document.querySelectorAll("#hintsRow button").forEach(b => b.onclick = () => { S.hints = b.dataset.hints === "on"; syncSettings(); store.set("aozora:settings", S); });
 document.querySelectorAll("#engines button").forEach(b => b.onclick = () => { S.engine = b.dataset.engine === "on"; changed(); });
 document.querySelectorAll("#hangs button").forEach(b => b.onclick = () => { S.hang = b.dataset.hang === "on"; changed(); });
+document.querySelectorAll("#spreadRow button").forEach(b => b.onclick = () => { S.spread = b.dataset.spread; changed(); });
 document.querySelectorAll("#turns button").forEach(b => b.onclick = () => {
   turn = S.turn = b.dataset.turn;
   store.set("aozora:settings", S);
