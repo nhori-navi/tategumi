@@ -101,6 +101,8 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .colophon .c-head{color:var(--ink);font-weight:600}
 .gaiji{cursor:help}
 .gaiji.unres{color:var(--accent)}
+.kogaki{display:inline-block;inline-size:1em;block-size:1em;line-height:1;text-align:start;vertical-align:top;letter-spacing:0}
+.kogaki>span{display:inline-block;font-size:.66em;position:relative;left:.24em;top:.06em}
 .em-sesame{text-emphasis:filled sesame;-webkit-text-emphasis:filled sesame}
 .em-osesame{text-emphasis:open sesame;-webkit-text-emphasis:open sesame}
 .em-dot{text-emphasis:filled circle;-webkit-text-emphasis:filled circle}
@@ -161,6 +163,25 @@ pre.json{font-size:11px;line-height:1.5;background:color-mix(in srgb,var(--rule)
 .btnrow button{border-color:var(--rule);padding:7px 12px;font-size:13px}
 .btnrow button.primary{border-color:var(--accent);color:var(--accent)}
 .sheet a{color:var(--accent)}
+/* 探す */
+.sheet.find{height:86%;display:flex;flex-direction:column;gap:10px}
+.sheet.find h2{margin:0}
+#q{box-sizing:border-box;width:100%;font:inherit;font-size:16px;padding:10px 12px;border:1px solid var(--rule);border-radius:8px;background:var(--paper);color:var(--ink)}
+.find-body{flex:1;min-height:0;overflow-y:auto;display:grid;align-content:start;gap:6px}
+.find-body h3{margin:6px 0 0}
+.find-foot{display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-size:11px;color:var(--ink-soft);border-top:1px solid var(--rule);padding-top:10px}
+.find-foot button{border:1px solid var(--rule);padding:7px 12px;font-size:13px;color:var(--ink)}
+.wk{display:flex;gap:6px;align-items:stretch}
+.wk-go{flex:1;min-width:0;text-align:left;border:1px solid var(--rule)!important;padding:9px 11px;display:grid;gap:3px}
+.wk-go:hover{border-color:var(--accent)!important}
+.wk-t{font-family:var(--f-text);font-size:16px;line-height:1.4}
+.wk-t small{font-size:12px;color:var(--ink-soft);margin-left:.5em}
+.wk-m{font-size:12px;color:var(--ink-soft);display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center}
+.tag{font-size:10.5px;border:1px solid var(--rule);border-radius:999px;padding:0 7px;line-height:1.6}
+.tag.cr{border-color:var(--accent);color:var(--accent)}
+.wk-msg{font-size:12px;line-height:1.7;color:var(--ink);background:color-mix(in srgb,var(--rule) 40%,transparent);border-radius:8px;padding:8px 10px}
+.wk-del{border:1px solid var(--rule)!important;padding:0 10px;font-size:12px;color:var(--ink-soft)}
+.find-empty{font-size:13px;color:var(--ink-soft);margin:4px 0}
 /* しおり */
 .ribbon{position:absolute;top:-8px;right:calc(-.55 * var(--mx,20px) - 5px);width:10px;height:40px;background:var(--accent);pointer-events:none;z-index:2;
   clip-path:polygon(0 0,100% 0,100% 100%,50% 78%,0 100%)}
@@ -230,7 +251,7 @@ pre.json{font-size:11px;line-height:1.5;background:color-mix(in srgb,var(--rule)
     <span class="brand">青空縦組</span>
     <span class="work" id="workLabel"></span>
     <nav class="tools">
-      <button id="btnOpen" type="button">開く</button>
+      <button id="btnFind" type="button">探す</button>
       <button id="btnView" type="button">表示</button>
       <button id="btnMark" type="button">しおり</button>
       <button id="btnInfo" type="button">情報</button>
@@ -309,6 +330,16 @@ pre.json{font-size:11px;line-height:1.5;background:color-mix(in srgb,var(--rule)
     </div>
   </section>
 
+  <section class="sheet find" id="sheetFind" hidden aria-label="作品を探す">
+    <h2>作品を探す <button class="x" type="button" data-close>閉じる</button></h2>
+    <input id="q" type="search" placeholder="作品名・作家名（ひらがなでも）" autocomplete="off" enterkeyhint="search">
+    <div class="find-body" id="findBody"></div>
+    <div class="find-foot">
+      <button type="button" id="btnOpen">ファイルから開く</button>
+      <span id="findNote"></span>
+    </div>
+  </section>
+
   <section class="sheet" id="sheetMark" hidden aria-label="しおり">
     <h2>しおり <button class="x" type="button" data-close>閉じる</button></h2>
     <button type="button" class="bm-add" id="bmAdd">この頁にしおりを挟む</button>
@@ -331,7 +362,7 @@ pre.json{font-size:11px;line-height:1.5;background:color-mix(in srgb,var(--rule)
     <dl class="kv" id="infoEngine"></dl>
     <h3>中間データの見本（ルビを含む最初の行）</h3>
     <pre class="json" id="infoJson"></pre>
-    <h3>作品の読み込み方</h3>
+    <h3>ファイルから読み込む</h3>
     <p style="margin:0;font-size:13px">青空文庫の作品ページで「テキストファイル(ルビあり)」のzipを保存し、「開く」で選びます。zipのままで読めます。画面にドラッグしても開けます。<br>例：<a href="https://www.aozora.gr.jp/cards/000081/card456.html" target="_blank" rel="noopener">銀河鉄道の夜（宮沢賢治）の作品ページ</a></p>
     <div class="btnrow">
       <button type="button" class="primary" id="btnOpen2">ファイルを開く</button>
@@ -424,6 +455,8 @@ function closeOf(s, open){ // ［ と ］ の対応をとる
   return -1;
 }
 function resolveGaiji(a){
+  const k = a.match(/^小書き(?:平仮名|片仮名)(.)/);
+  if (k) return {ch: k[1], note: a, small: true};
   const u = a.match(/U\+([0-9A-Fa-f]{4,6})/);
   if (u) return {ch: String.fromCodePoint(parseInt(u[1], 16)), note: a};
   const m = z2h(a).match(/(\d)-(\d{1,2})-(\d{1,2})/);
@@ -529,7 +562,7 @@ function parseLine(s0, st, rep){
       const close = closeOf(s, k + 1);
       if (close > 0){
         const g = resolveGaiji(s.slice(k + 3, close));
-        cells.push({ch:g.ch, g:true, note:g.note, unres:!!g.unres});
+        cells.push({ch:g.ch, g:true, note:g.note, unres:!!g.unres, small:!!g.small});
         rep.gaiji++; if (g.unres) rep.gaijiUnres++;
         k = close + 1; continue;
       }
@@ -637,7 +670,7 @@ function renderLine(L, extraClass){
   }
   const cellHtml = q => {
     const c = cells[q];
-    return c.g ? `<span class="gaiji${c.unres ? " unres" : ""}" data-note="${esc(c.note)}">${esc(c.ch)}</span>` : esc(c.ch);
+    return c.g ? (c.small ? `<span class="gaiji kogaki" data-note="${esc(c.note)}"><span>${esc(c.ch)}</span></span>` : `<span class="gaiji${c.unres ? " unres" : ""}" data-note="${esc(c.note)}">${esc(c.ch)}</span>`) : esc(c.ch);
   };
   const run = (a, b) => { let h = ""; for (let q = a; q < b; q++) h += cellHtml(q); return h; };
   let out = "", buf = "", cur = "";
@@ -717,7 +750,7 @@ function buildUnits(L){
   }
   const cellHtml = q => {
     const c = cells[q];
-    return c.g ? `<span class="gaiji${c.unres ? " unres" : ""}" data-note="${esc(c.note)}">${esc(c.ch)}</span>` : esc(c.ch);
+    return c.g ? (c.small ? `<span class="gaiji kogaki" data-note="${esc(c.note)}"><span>${esc(c.ch)}</span></span>` : `<span class="gaiji${c.unres ? " unres" : ""}" data-note="${esc(c.note)}">${esc(c.ch)}</span>`) : esc(c.ch);
   };
   const run = (a, b) => { let h = ""; for (let q = a; q < b; q++) h += cellHtml(q); return h; };
   const units = [];
@@ -1142,13 +1175,126 @@ async function openFile(file){
     } else {
       buf = new Uint8Array(await file.arrayBuffer());
     }
-    loadText(decodeBytes(buf), true);
+    const text = decodeBytes(buf);
+    loadText(text, true);
+    shelf.put({id:"f" + docKey, title:doc.title, author:doc.author, text, at:Date.now()});
     closeSheets();
     toast(`「${doc.title}」を開きました。`);
   } catch (err){
     toast(err.message || "ファイルを開けませんでした。");
   }
 }
+
+/* ---------- 本棚（端末の中に保存した作品） ---------- */
+const shelf = (() => {
+  let dbp = null;
+  const open = () => dbp || (dbp = new Promise((res, rej) => {
+    try {
+      const r = indexedDB.open("tategumi", 1);
+      r.onupgradeneeded = () => r.result.createObjectStore("books", {keyPath:"id"});
+      r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+    } catch (e) { rej(e); }
+  }));
+  const tx = async (mode, fn) => { const db = await open(); return new Promise((res, rej) => {
+    const t = db.transaction("books", mode), st = t.objectStore("books"); const out = fn(st);
+    t.oncomplete = () => res(out && out.result); t.onerror = () => rej(t.error); }); };
+  return {
+    put: b => tx("readwrite", st => st.put(b)).catch(() => {}),
+    get: id => tx("readonly", st => st.get(id)).catch(() => null),
+    del: id => tx("readwrite", st => st.delete(id)).catch(() => {}),
+    all: () => tx("readonly", st => st.getAll()).catch(() => [])
+  };
+})();
+
+/* ---------- 作品を探す ---------- */
+const MIRROR = "https://raw.githubusercontent.com/aozorahack/aozorabunko_text/master/cards/";
+const CARD = "https://www.aozora.gr.jp/cards/";
+const KANA_LABEL = ["新字新仮名", "新字旧仮名", "旧字旧仮名", "旧字新仮名", "その他"];
+let IDX = null, idxLoading = null, curWork = null;
+const norm = t => (t || "").replace(/[\u30a1-\u30f6]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60)).replace(/[\s　・･,，、。]/g, "").toLowerCase();
+function loadIndex(){
+  if (IDX) return Promise.resolve(IDX);
+  return idxLoading || (idxLoading = fetch("index.json").then(r => { if (!r.ok) throw new Error(); return r.json(); }).then(d => {
+    d.w.forEach(w => { w.k = norm(w[1] + w[2] + w[3]); w.ak = norm(w[7].map(i => d.p[i][1] + d.p[i][2]).join("")); });
+    $("#findNote").textContent = `作品一覧 ${d.v} 時点・取り込み元 ${d.mirror} 時点`;
+    return (IDX = d);
+  }).catch(e => { idxLoading = null; throw e; }));
+}
+const names = (list) => list.map(i => IDX.p[i][1]).join("・");
+function workRow(w){
+  const tags = [`<span class="tag">${KANA_LABEL[w[4]]}</span>`];
+  if (/^K/.test(w[5])) tags.push(`<span class="tag">児童</span>`);
+  if (w[6] & 1) tags.push(`<span class="tag cr">著作権あり</span>`);
+  else if (!(w[6] & 2)) tags.push(`<span class="tag">ファイルから</span>`);
+  const by = names(w[7]) + (w[8].length ? `（${names(w[8])}）` : "");
+  return `<div class="wk" data-id="${w[0]}"><button type="button" class="wk-go" data-id="${w[0]}">
+    <span class="wk-t">${esc(w[1])}${w[3] ? `<small>${esc(w[3])}</small>` : ""}</span>
+    <span class="wk-m">${esc(by)}${tags.join("")}</span>${w[11] ? `<span class="wk-m">底本：${esc(w[11])}</span>` : ""}</button></div>`;
+}
+async function renderFind(){
+  const body = $("#findBody"), q = norm($("#q").value);
+  if (!q){
+    const books = (await shelf.all()).sort((a, b) => b.at - a.at);
+    body.innerHTML = `<h3>本棚</h3>` + (books.length ? books.map(b => `<div class="wk"><button type="button" class="wk-go" data-shelf="${esc(b.id)}">
+      <span class="wk-t">${esc(b.title)}</span><span class="wk-m">${esc(b.author)}<span class="tag">端末に保存済み</span></span></button>
+      <button type="button" class="wk-del" data-del="${esc(b.id)}" aria-label="本棚から外す">外す</button></div>`).join("")
+      : `<p class="find-empty">読んだ作品はここに並び、電波のない場所でも開けます。上の欄に作品名や作家名を入れて探してください。</p>`);
+    body.querySelectorAll("[data-shelf]").forEach(b => b.onclick = () => openShelf(b.dataset.shelf));
+    body.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => { await shelf.del(b.dataset.del); renderFind(); });
+    return;
+  }
+  body.innerHTML = `<p class="find-empty">作品一覧を読み込んでいます…</p>`;
+  let d;
+  try { d = await loadIndex(); } catch (e) { body.innerHTML = `<p class="find-empty">作品一覧を読み込めませんでした。通信できる場所でもう一度開いてください。</p>`; return; }
+  if (norm($("#q").value) !== q) return;
+  const hits = [];
+  for (const w of d.w){
+    let sc = -1;
+    if (w.k.startsWith(q) || norm(w[2]).startsWith(q)) sc = 0;
+    else if (w.k.includes(q)) sc = 1;
+    else if (w.ak.includes(q)) sc = 2;
+    if (sc >= 0) hits.push([sc, w]);
+  }
+  hits.sort((a, b) => a[0] - b[0] || a[1][2].localeCompare(b[1][2], "ja"));
+  body.innerHTML = hits.length
+    ? `<h3>${hits.length.toLocaleString()} 件${hits.length > 80 ? "（はじめの80件）" : ""}</h3>` + hits.slice(0, 80).map(h => workRow(h[1])).join("")
+    : `<p class="find-empty">見つかりませんでした。作品名の一部や、作家の名字だけでも探せます。</p>`;
+  body.querySelectorAll(".wk-go[data-id]").forEach(b => b.onclick = () => openWork(+b.dataset.id, b.parentElement));
+}
+function rowMessage(row, html){
+  row.parentElement.querySelectorAll(".wk-msg").forEach(m => m.remove());
+  const m = document.createElement("div"); m.className = "wk-msg"; m.innerHTML = html;
+  row.insertAdjacentElement("afterend", m);
+}
+async function openWork(id, row){
+  const w = IDX.w.find(x => x[0] === id); if (!w) return;
+  const card = `<a href="${CARD}${w[9].replace("/", "/card")}.html" target="_blank" rel="noopener">青空文庫の図書カード</a>`;
+  if (w[6] & 1){ rowMessage(row, `著作権が続いている作品です。許諾の条件が作品ごとに違うため、縦組では取り込まず、${card}で読む形にしています。`); return; }
+  const saved = await shelf.get("w" + id);
+  if (saved){ openBook(saved); return; }
+  if (!(w[6] & 2)){ rowMessage(row, `取り込み元にまだない作品です（2023年3月以降の公開や更新）。${card}で「テキストファイル(ルビあり)」のzipを保存し、下の「ファイルから開く」で選ぶと読めます。`); return; }
+  rowMessage(row, "読み込んでいます…");
+  try {
+    const name = w[10].split("/")[1];
+    const res = await fetch(`${MIRROR}${w[10].split("/")[0]}/files/${name}/${name}.txt`);
+    if (!res.ok) throw new Error(res.status);
+    const text = decodeBytes(new Uint8Array(await res.arrayBuffer()));
+    const book = {id:"w" + id, title:w[1], author:names(w[7]), text, at:Date.now()};
+    await shelf.put(book);
+    openBook(book);
+  } catch (e){
+    rowMessage(row, `読み込めませんでした。通信できる場所でもう一度押すか、${card}からzipを保存して「ファイルから開く」で読んでください。`);
+  }
+}
+async function openShelf(id){ const b = await shelf.get(id); if (b) openBook(b); }
+function openBook(b){
+  b.at = Date.now(); shelf.put(b);
+  loadText(b.text, true);
+  closeSheets();
+  toast(`「${b.title}」を開きました。`);
+}
+let findTimer;
+$("#q").addEventListener("input", () => { clearTimeout(findTimer); findTimer = setTimeout(renderFind, 150); });
 
 /* ---------- しおり ---------- */
 const marks = () => store.get("aozora:marks:" + docKey, []);
@@ -1240,7 +1386,7 @@ function toast(msg){
 }
 function openSheet(id){ closeSheets(); $(id).hidden = false; $("#scrim").hidden = false; app.classList.remove("immersed"); }
 function closeDock(){ if ($("#sheetView").hidden) return; $("#sheetView").hidden = true; app.classList.remove("tuning"); }
-function closeSheets(){ closeDock(); $("#sheetInfo").hidden = true; $("#sheetMark").hidden = true; $("#scrim").hidden = true; }
+function closeSheets(){ closeDock(); $("#sheetInfo").hidden = true; $("#sheetMark").hidden = true; $("#sheetFind").hidden = true; $("#scrim").hidden = true; }
 function openDock(){
   closeSheets();
   $("#sheetView").hidden = false;
@@ -1256,6 +1402,7 @@ function showPane(name){
 document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => showPane(b.dataset.pane));
 
 $("#btnOpen").onclick = $("#btnOpen2").onclick = () => $("#file").click();
+$("#btnFind").onclick = () => { openSheet("#sheetFind"); renderFind(); loadIndex().catch(() => {}); };
 $("#file").onchange = e => { const f = e.target.files[0]; if (f) openFile(f); e.target.value = ""; };
 $("#btnView").onclick = () => { $("#sheetView").hidden ? openDock() : closeDock(); };
 $("#btnInfo").onclick = () => openSheet("#sheetInfo");
@@ -1414,7 +1561,7 @@ stage.addEventListener("wheel", e => {
 document.addEventListener("keydown", e => {
   if (e.target.closest("input,select,textarea")) return;
   if (e.key === "Escape"){ closeSheets(); return; }
-  if (!$("#sheetInfo").hidden || !$("#sheetMark").hidden) return;
+  if (!$("#sheetInfo").hidden || !$("#sheetMark").hidden || !$("#sheetFind").hidden) return;
   if (e.key === "ArrowLeft" || e.key === "PageDown" || (e.key === " " && !e.shiftKey)){ e.preventDefault(); next(); }
   else if (e.key === "ArrowRight" || e.key === "PageUp" || (e.key === " " && e.shiftKey)){ e.preventDefault(); prev(); }
   else if (e.key === "Home") show(0);
