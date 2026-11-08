@@ -260,6 +260,13 @@ details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
 .tour-card .btnrow button{border:1px solid var(--rule);padding:8px 14px}
 .tour-card .btnrow button.primary{border-color:var(--accent);color:var(--accent)}
 .tour-hl{position:absolute;border:2px solid #f4f6f4;border-radius:10px;pointer-events:none;box-shadow:0 0 0 4px rgba(244,246,244,.25)}
+/* 開いたときの今日の一頁 */
+.greet .tour-card{display:grid;gap:10px}
+.greet .tour-card .step{margin:0}
+.greet .today{border:0;padding:0}
+.greet .reading{font-size:12px;color:var(--ink-soft);border-top:1px solid var(--rule);padding-top:8px;line-height:1.6}
+.greet .reading b{color:var(--ink);font-weight:500}
+.greet .btnrow{margin-top:0}
 /* しおり */
 .ribbon{position:absolute;top:-8px;right:calc(-.55 * var(--mx,20px) - 5px);width:10px;height:40px;background:var(--accent);pointer-events:none;z-index:2;
   clip-path:polygon(0 0,100% 0,100% 100%,50% 78%,0 100%)}
@@ -469,6 +476,12 @@ details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
     <h3>版情報</h3>
     <dl class="kv" id="infoVersion"></dl>
     <div class="btnrow"><button type="button" id="btnTour">使い方ナビを見る</button></div>
+    <h3>開いたときの今日の一頁</h3>
+    <div class="turns" id="greetRow">
+      <button type="button" data-greet="daily">一日に一度</button>
+      <button type="button" data-greet="always">開くたびに</button>
+      <button type="button" data-greet="off">出さない</button>
+    </div>
     <details class="dev">
       <summary>作り手向けの情報</summary>
       <h3>注記の読み取り結果</h3>
@@ -500,6 +513,13 @@ details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
         <button type="button" id="tourSkip">閉じる</button>
         <button type="button" class="primary" id="tourNext">次へ</button>
       </div>
+    </div>
+  </div>
+  <div class="tour greet" id="greet" hidden role="dialog" aria-label="今日の一頁">
+    <div class="tour-card">
+      <div class="step" id="greetDate"></div>
+      <div id="greetBody"></div>
+      <div class="btnrow" id="greetBtns"></div>
     </div>
   </div>
   <div class="toast" id="toast" hidden role="status"></div>
@@ -556,11 +576,10 @@ const SAMPLE = [
 ].join("\n");
 
 /* ---------- 版情報（GitHubに置くときに書き換わる） ---------- */
-const APP_VERSION = "15", APP_DATE = "2026-11-08";
+const APP_VERSION = "16", APP_DATE = "2026-11-08";
 const APP_NOTES = [
-  "パソコンや横向きのタブレットでは、本のように右と左の二頁を並べる「見開き」で読めるようにしました",
-  "見開きでは二頁ずつめくり、柱とノンブルも左右の頁それぞれに付きます。「表示」→「めくり」で、いつも一頁ずつにも戻せます",
-  "試していた「朗読」は、読み上げが機械的で作品の味わいを損なうため、取り外しました"
+  "アプリを開くと、まず「今日の一頁」が出るようにしました。気になったら「この作品を読む」、読みかけの作品があれば「続きから読む」で、すぐ本文に入れます",
+  "今日の一頁は一日に一度だけ出ます。「情報」の「開いたときの今日の一頁」で、開くたびに出す・出さないも選べます"
 ]
 
 /* ---------- 小道具 ---------- */
@@ -1116,7 +1135,7 @@ function renderDocEngine(doc, N){
 function renderDoc(doc, N){ return S.engine ? renderDocEngine(doc, N) : renderDocBrowser(doc); }
 
 /* ---------- 版面と頁割り ---------- */
-const S = Object.assign({face:"Shippori Mincho", size:19, lh:1.85, chars:40, turn:"fade", light:"aozora", dark:"yoru", mode:"auto", contrast:100, engine:true, hang:true, margin:1.5, hints:true, folio:true, paper:"joshitsu", spread:"auto"}, store.get("aozora:settings", {}));
+const S = Object.assign({face:"Shippori Mincho", size:19, lh:1.85, chars:40, turn:"fade", light:"aozora", dark:"yoru", mode:"auto", contrast:100, engine:true, hang:true, margin:1.5, hints:true, folio:true, paper:"joshitsu", spread:"auto", greet:"daily"}, store.get("aozora:settings", {}));
 const app = $("#app"), stage = $("#stage"), frame = $("#frame"), clip = $("#clip"), content = $("#content");
 const ghost = $("#ghost"), ghostContent = $("#ghostContent"), clip2 = $("#clip2"), content2 = $("#content2"), fold = $("#fold");
 let turn = S.turn, anims = [];
@@ -1534,10 +1553,9 @@ async function renderFind(){
   body.querySelectorAll(".wk-go[data-id]").forEach(b => b.onclick = () => openWork(+b.dataset.id, b.parentElement));
 }
 /* 今日の一頁：日ごとに、まだ本棚にない作品から一節を選んで見せる */
-async function renderToday(books){
-  const box = $("#today"); if (!box) return;
-  let d; try { d = await loadIndex(); } catch (e) { box.innerHTML = `<p class="find-empty">通信できる場所で開くと、今日の一頁が出ます。</p>`; return; }
-  const day = (() => { const t = new Date(); return t.getFullYear() * 1000 + Math.floor((t - new Date(t.getFullYear(), 0, 0)) / 864e5); })();
+const dayNo = () => { const t = new Date(); return t.getFullYear() * 1000 + Math.floor((t - new Date(t.getFullYear(), 0, 0)) / 864e5); };
+async function todayPick(books){
+  const d = await loadIndex(), day = dayNo();
   const owned = new Set((books || []).map(b => b.id));
   let pick = store.get("aozora:today", null);
   if (!pick || pick.day !== day){
@@ -1556,14 +1574,51 @@ async function renderToday(books){
     } catch (e) {}
     store.set("aozora:today", pick);
   }
-  const w = d.w.find(x => x[0] === pick.id); if (!w || !$("#today")) return;
+  const w = d.w.find(x => x[0] === pick.id); if (!w) return null;
   const ex = pick.excerpt ? (pick.excerpt.length > 150 ? pick.excerpt.slice(0, 150) + "……" : pick.excerpt) : "";
-  $("#today").innerHTML = `<div class="today" data-id="${w[0]}">${ex ? `<div class="today-v">${esc(ex)}</div>` : ""}
-    <div class="today-m"><b>${esc(w[1])}</b><span>${esc(names(w[7]))}・${fmtMin(w[12])}</span>
-    <span>${KANA_LABEL[w[4]]}${w[11] ? "・底本：" + esc(w[11]) : ""}</span>
-    <button type="button" id="todayGo">この作品を読む</button></div></div>`;
-  $("#todayGo").onclick = () => openWork(w[0], $("#today .today"));
+  return {w, ex};
 }
+const todayHtml = (w, ex, btn) => `<div class="today" data-id="${w[0]}">${ex ? `<div class="today-v">${esc(ex)}</div>` : ""}
+    <div class="today-m"><b>${esc(w[1])}</b><span>${esc(names(w[7]))}・${fmtMin(w[12])}</span>
+    <span>${KANA_LABEL[w[4]]}${w[11] ? "・底本：" + esc(w[11]) : ""}</span>${btn ? `
+    <button type="button" id="todayGo">この作品を読む</button>` : ""}</div></div>`;
+async function renderToday(books){
+  if (!$("#today")) return;
+  let t; try { t = await todayPick(books); } catch (e) { if ($("#today")) $("#today").innerHTML = `<p class="find-empty">通信できる場所で開くと、今日の一頁が出ます。</p>`; return; }
+  if (!t || !$("#today")) return;
+  $("#today").innerHTML = todayHtml(t.w, t.ex, true);
+  $("#todayGo").onclick = () => openWork(t.w[0], $("#today .today"));
+}
+
+/* 開いたときの今日の一頁：使い方ナビと同じ形で重ね、読みかけがあれば続きへも戻れる */
+const bootAt = Date.now();
+function closeGreet(){ $("#greet").hidden = true; }
+async function showGreet(){
+  const mode = S.greet || "daily", day = dayNo();
+  if (mode === "off" || (mode === "daily" && store.get("aozora:greeted", 0) === day)) return;
+  let t; try { t = await todayPick(await shelf.all()); } catch (e) { return; }
+  // 選んでいる間に読み始めていたら、邪魔をしない（次に開いたときに出す）
+  if (!t || Date.now() - bootAt > 6000 || !$("#tour").hidden || !$("#sheetInfo").hidden || !$("#sheetMark").hidden || !$("#sheetFind").hidden || !$("#sheetView").hidden) return;
+  store.set("aozora:greeted", day);
+  const {w, ex} = t;
+  const now = new Date();
+  $("#greetDate").textContent = `今日の一頁　${now.getMonth() + 1}月${now.getDate()}日（${"日月火水木金土"[now.getDay()]}）`;
+  const reading = !!store.get("aozora:last", null) && doc && pages.length && pageIdx < pages.length - 1 && w[1] !== doc.title;
+  const pct = reading ? Math.max(1, Math.round((pageIdx + 1) / pages.length * 100)) : 0;
+  $("#greetBody").innerHTML = todayHtml(w, ex, false) + (reading ? `<div class="reading">読みかけ：<b>${esc(doc.title)}</b>　${esc(doc.author)}　${pageIdx ? `${pct}%まで` : "まだ一頁目"}</div>` : "");
+  $("#greetBtns").innerHTML = reading
+    ? `<button type="button" id="greetGo">この作品を読む</button><button type="button" class="primary" id="greetBack">${pageIdx ? "続きから読む" : "読みかけを読む"}</button>`
+    : `<button type="button" id="greetBack">閉じる</button><button type="button" class="primary" id="greetGo">この作品を読む</button>`;
+  $("#greetBack").onclick = closeGreet;
+  $("#greetGo").onclick = async () => {
+    const b = $("#greetGo"); b.disabled = true;
+    const ok = await openWork(w[0], $("#greetBody .today"));
+    if (ok) closeGreet(); else b.disabled = false;
+  };
+  app.classList.remove("immersed");
+  $("#greet").hidden = false;
+}
+$("#greet").addEventListener("click", e => { if (e.target === $("#greet")) closeGreet(); });
 
 /* 索引：作家／作品名／分類 */
 const ROWS = [["あ","あいうえお"],["か","かきくけこ"],["さ","さしすせそ"],["た","たちつてと"],["な","なにぬねの"],["は","はひふへほ"],["ま","まみむめも"],["や","やゆよ"],["ら","らりるれろ"],["わ","わをん"]];
@@ -1651,7 +1706,7 @@ async function openWork(id, row){
   const card = `<a href="${CARD}${w[9].replace("/", "/card")}.html" target="_blank" rel="noopener">青空文庫の図書カード</a>`;
   if (w[6] & 1){ rowMessage(row, `著作権が続いている作品です。許諾の条件が作品ごとに違うため、縦組では取り込まず、${card}で読む形にしています。`); return; }
   const saved = await shelf.get("w" + id);
-  if (saved){ openBook(saved); return; }
+  if (saved){ openBook(saved); return true; }
   if (!(w[6] & 2)){ rowMessage(row, `取り込み元にまだない作品です（2023年3月以降の公開や更新）。${card}で「テキストファイル(ルビあり)」のzipを保存し、下の「ファイルから開く」で選ぶと読めます。`); return; }
   rowMessage(row, "読み込んでいます…");
   try {
@@ -1662,6 +1717,7 @@ async function openWork(id, row){
     const book = {id:"w" + id, title:w[1], author:names(w[7]), text, at:Date.now()};
     await shelf.put(book);
     openBook(book);
+    return true;
   } catch (e){
     rowMessage(row, `読み込めませんでした。通信できる場所でもう一度押すか、${card}からzipを保存して「ファイルから開く」で読んでください。`);
   }
@@ -2021,6 +2077,7 @@ stage.addEventListener("wheel", e => {
 }, {passive:false});
 document.addEventListener("keydown", e => {
   if (e.target.closest("input,select,textarea")) return;
+  if (!$("#greet").hidden){ if (e.key === "Escape") closeGreet(); return; }
   if (e.key === "Escape"){ closeSheets(); return; }
   if (!$("#sheetInfo").hidden || !$("#sheetMark").hidden || !$("#sheetFind").hidden) return;
   if (e.key === "ArrowLeft" || e.key === "PageDown" || (e.key === " " && !e.shiftKey)){ e.preventDefault(); next(); }
@@ -2196,6 +2253,7 @@ function syncSettings(){
   document.querySelectorAll("#hintsRow button").forEach(b => b.setAttribute("aria-pressed", String((b.dataset.hints === "on") === !!S.hints)));
   content.classList.toggle("hints", !!S.hints); ghostContent.classList.toggle("hints", !!S.hints); content2.classList.toggle("hints", !!S.hints);
   document.querySelectorAll("#spreadRow button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.spread === (S.spread || "auto"))));
+  document.querySelectorAll("#greetRow button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.greet === (S.greet || "daily"))));
   document.querySelectorAll("#engines button").forEach(b => b.setAttribute("aria-pressed", String((b.dataset.engine === "on") === !!S.engine)));
   document.querySelectorAll("#hangs button").forEach(b => { b.setAttribute("aria-pressed", String((b.dataset.hang === "on") === !!S.hang)); b.disabled = !S.engine; });
   $("#rngContrast").value = S.contrast; $("#outContrast").textContent = S.contrast + "%";
@@ -2219,6 +2277,7 @@ document.querySelectorAll("#hintsRow button").forEach(b => b.onclick = () => { S
 document.querySelectorAll("#engines button").forEach(b => b.onclick = () => { S.engine = b.dataset.engine === "on"; changed(); });
 document.querySelectorAll("#hangs button").forEach(b => b.onclick = () => { S.hang = b.dataset.hang === "on"; changed(); });
 document.querySelectorAll("#spreadRow button").forEach(b => b.onclick = () => { S.spread = b.dataset.spread; changed(); });
+document.querySelectorAll("#greetRow button").forEach(b => b.onclick = () => { S.greet = b.dataset.greet; syncSettings(); store.set("aozora:settings", S); });
 document.querySelectorAll("#turns button").forEach(b => b.onclick = () => {
   turn = S.turn = b.dataset.turn;
   store.set("aozora:settings", S);
@@ -2237,7 +2296,8 @@ applyPaper();
 renderPresets();
 const last = store.get("aozora:last", null);
 loadText(last || SAMPLE, false);
-if (!store.get("aozora:toured", false)) setTimeout(() => showTour(0), 600);
+if (!store.get("aozora:toured", false)) setTimeout(() => showTour(0), 600);   // 初めての人は使い方ナビを先に
+else setTimeout(showGreet, 400);
 // 新しい版に切り替わったら知らせる
 if (!APP_VERSION.startsWith("__")){
   const seen = store.get("aozora:ver", null);
