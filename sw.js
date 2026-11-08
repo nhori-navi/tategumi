@@ -1,6 +1,8 @@
 // 青空縦組 の Service Worker
 // 更新するときは VERSION の数字を上げる
-const VERSION = "tategumi-v3";
+// 同じアドレス（nhori-navi.github.io）のほかのアプリとキャッシュの置き場を共有しているので、
+// 消すのは "tategumi" で始まるものだけにする
+const VERSION = "tategumi-v4";
 const SHELL = ["./", "index.html", "manifest.webmanifest",
   "icons/icon-192.png", "icons/icon-512.png", "icons/maskable-512.png", "icons/apple-touch-icon.png"];
 const RUNTIME = "tategumi-runtime";
@@ -11,7 +13,8 @@ self.addEventListener("install", e => {
 });
 self.addEventListener("activate", e => {
   e.waitUntil(caches.keys().then(keys => Promise.all(
-    keys.filter(k => k.startsWith("tategumi") && k !== VERSION && k !== RUNTIME).map(k => caches.delete(k))  )).then(() => self.clients.claim()));
+    keys.filter(k => k.startsWith("tategumi") && k !== VERSION && k !== RUNTIME).map(k => caches.delete(k))
+  )).then(() => self.clients.claim()));
 });
 self.addEventListener("fetch", e => {
   const req = e.request;
@@ -33,7 +36,12 @@ self.addEventListener("fetch", e => {
     }));
     return;
   }
+  // 同じ場所のファイル（作品索引など）：手元にあればすぐ使い、裏で新しくする
   if (url.origin === location.origin) {
-    e.respondWith(caches.match(req).then(hit => hit || fetch(req)));
+    e.respondWith(caches.open(VERSION).then(async c => {
+      const hit = await c.match(req, {ignoreSearch: true});
+      const net = fetch(req).then(res => { if (res.ok) c.put(req, res.clone()); return res; }).catch(() => hit);
+      return hit || net;
+    }));
   }
 });
