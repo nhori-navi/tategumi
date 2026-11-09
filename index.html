@@ -193,6 +193,16 @@ details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
 .gojuon{display:grid;grid-template-columns:repeat(auto-fill,minmax(44px,1fr));gap:6px}
 .gojuon button{border:1px solid var(--rule)!important;padding:8px 0;font-family:var(--f-text);font-size:16px}
 .gojuon button:disabled{opacity:.35}
+/* シートの中のタブ（探す・情報） */
+.stabs{display:flex;gap:6px;margin:10px 0 2px;flex-wrap:wrap}
+.stabs button{border:1px solid var(--rule)!important;padding:6px 14px;font-size:13.5px;border-radius:999px;color:var(--ink-soft)}
+.stabs button[aria-selected="true"]{background:var(--accent);border-color:var(--accent)!important;color:var(--paper)}
+.shelf-prog{font-size:12px;color:var(--accent);margin-left:6px;white-space:nowrap}
+.shelf-prog.done{color:var(--ink-soft)}
+.pos-now{margin:4px 0 0;font-size:14px;line-height:1.7}
+.pos-now b{font-weight:600}
+.report-link{font-size:13px;margin:8px 0 0}
+.report-link a{color:var(--accent)}
 /* 絞り込み */
 .filt{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:2px 0 4px}
 .filt select{font:inherit;font-size:13px;color:var(--ink);background:var(--paper);border:1px solid var(--rule);border-radius:999px;padding:5px 10px;max-width:100%}
@@ -404,9 +414,8 @@ details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
       <div class="tabs" role="tablist">
         <button type="button" role="tab" data-pane="osusume">おすすめ</button>
         <button type="button" role="tab" data-pane="moji">文字</button>
-        <button type="button" role="tab" data-pane="iro">配色</button>
+        <button type="button" role="tab" data-pane="iro">色と紙</button>
         <button type="button" role="tab" data-pane="mekuri">めくり</button>
-        <button type="button" role="tab" data-pane="kumi">組版</button>
       </div>
       <button class="x" type="button" data-close>閉じる</button>
     </div>
@@ -426,6 +435,8 @@ details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
         <div class="field"><label for="rngSize">文字サイズ</label><input id="rngSize" type="range" min="12" max="30" step="1"><output id="outSize"></output></div>
         <div class="field"><label for="rngLh">行間</label><input id="rngLh" type="range" min="1.6" max="2.4" step="0.05"><output id="outLh"></output></div>
         <div class="field"><label for="rngChars">一行の字数</label><input id="rngChars" type="range" min="20" max="50" step="1"><output id="outChars"></output></div>
+        <div class="field"><label for="rngMargin">余白</label><input id="rngMargin" type="range" min="0.5" max="3" step="0.25"><output id="outMargin"></output></div>
+        <p class="note">画面に出すもの</p>
         <div class="turns" id="folioRow">
           <button type="button" data-folio="on">柱とノンブルを出す</button>
           <button type="button" data-folio="off">出さない</button>
@@ -434,7 +445,6 @@ details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
           <button type="button" data-hints="on">手がかりに印を付ける</button>
           <button type="button" data-hints="off">印を付けない</button>
         </div>
-        <div class="field"><label for="rngMargin">余白</label><input id="rngMargin" type="range" min="0.5" max="3" step="0.25"><output id="outMargin"></output></div>
       </div>
       <div class="pane" data-pane="iro">
         <div class="turns" id="modes">
@@ -469,23 +479,17 @@ details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
         </div>
         <p class="note">パソコンや横向きのタブレットでは、本のように右と左の二頁を並べます。スクロールのときは一頁ずつです。</p>
       </div>
-      <div class="pane" data-pane="kumi">
-        <div class="turns" id="engines">
-          <button type="button" data-engine="on">自作の組版</button>
-          <button type="button" data-engine="off">ブラウザ任せ</button>
-        </div>
-        <div class="turns" id="hangs">
-          <button type="button" data-hang="on">句読点をぶら下げる</button>
-          <button type="button" data-hang="off">ぶら下げない</button>
-        </div>
-        <p class="note">切り替えると、行の分かれ方と下端のそろい方の違いを見比べられます。</p>
-      </div>
     </div>
   </section>
 
   <section class="sheet find" id="sheetFind" hidden aria-label="作品を探す">
     <h2>作品を探す <button class="x" type="button" data-close>閉じる</button></h2>
     <input id="q" type="search" placeholder="作品名・作家名（ひらがなでも）" autocomplete="off" enterkeyhint="search">
+    <div class="stabs" id="findTabs" role="tablist">
+      <button type="button" role="tab" data-ftab="shelf">本棚</button>
+      <button type="button" role="tab" data-ftab="today">今日の一冊</button>
+      <button type="button" role="tab" data-ftab="index">索引</button>
+    </div>
     <div class="find-body" id="findBody"></div>
     <div class="find-foot">
       <button type="button" id="btnOpen">ファイルから開く</button>
@@ -495,6 +499,8 @@ details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
 
   <section class="sheet" id="sheetMark" hidden aria-label="目次としおり">
     <h2>目次としおり <button class="x" type="button" data-close>閉じる</button></h2>
+    <h3>いま読んでいるところ</h3>
+    <p class="pos-now" id="markPos"></p>
     <h3>目次</h3>
     <ul class="toc" id="toc"></ul>
     <h3>しおり</h3>
@@ -507,39 +513,59 @@ details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
 
   <section class="sheet" id="sheetInfo" hidden aria-label="作品の情報">
     <h2>情報 <button class="x" type="button" data-close>閉じる</button></h2>
-    <h3>作品</h3>
-    <dl class="kv" id="infoWork"></dl>
-    <div id="infoGuide" hidden><h3>この作品の手引き</h3><p class="info-guide" id="infoGuideText"></p><p class="guide-note">AIが本文を読んで作成した手引きです。結末には触れていません。</p></div>
-    <h3>この作品の手がかりと注</h3>
-    <div id="infoHints"></div>
-    <h3>底本・入力・校正</h3>
-    <p class="colo" id="infoColo"></p>
-    <h3>版情報</h3>
-    <dl class="kv" id="infoVersion"></dl>
-    <div class="btnrow"><button type="button" id="btnTour">使い方ナビを見る</button></div>
-    <h3>開いたときの今日の一頁</h3>
-    <div class="turns" id="greetRow">
-      <button type="button" data-greet="daily">一日に一度</button>
-      <button type="button" data-greet="always">開くたびに</button>
-      <button type="button" data-greet="off">出さない</button>
+    <div class="stabs" id="infoTabs" role="tablist">
+      <button type="button" role="tab" data-itab="work">この作品</button>
+      <button type="button" role="tab" data-itab="app">アプリ</button>
     </div>
-    <h3>このアプリについて</h3>
-    <p class="about">青空縦組は、青空文庫の作品を本のような縦組みで読むために、個人で作っているアプリです。利用者のデータは集めていません。本文は、青空文庫の皆さんが入力し、校正したものです。</p>
-    <p class="about" id="aboutSupport" hidden></p>
-    <details class="dev">
-      <summary>作り手向けの情報</summary>
-      <h3>注記の読み取り結果</h3>
-      <dl class="kv" id="infoReport"></dl>
-      <ul class="unk" id="infoUnknown"></ul>
-      <h3>組版エンジンの処理</h3>
-      <dl class="kv" id="infoEngine"></dl>
-      <h3>中間データの見本（ルビを含む最初の行）</h3>
-      <pre class="json" id="infoJson"></pre>
-      <div class="btnrow">
-        <button type="button" id="btnOpen2">ファイルを開く</button>
-        <button type="button" id="btnSample">組版見本に戻す</button>
+    <div data-ipane="work">
+      <h3>作品</h3>
+      <dl class="kv" id="infoWork"></dl>
+      <div id="infoGuide" hidden><h3>この作品の手引き</h3><p class="info-guide" id="infoGuideText"></p><p class="guide-note">AIが本文を読んで作成した手引きです。結末には触れていません。</p></div>
+      <h3>この作品の手がかりと注</h3>
+      <div id="infoHints"></div>
+      <h3>底本・入力・校正</h3>
+      <p class="colo" id="infoColo"></p>
+      <p class="report-link" id="infoReportLink"></p>
+    </div>
+    <div data-ipane="app" hidden>
+      <h3>使い方</h3>
+      <div class="btnrow"><button type="button" id="btnTour">使い方ナビを見る</button></div>
+      <h3>開いたときの今日の一頁</h3>
+      <div class="turns" id="greetRow">
+        <button type="button" data-greet="daily">一日に一度</button>
+        <button type="button" data-greet="always">開くたびに</button>
+        <button type="button" data-greet="off">出さない</button>
       </div>
-    </details>
+      <h3>版情報</h3>
+      <dl class="kv" id="infoVersion"></dl>
+      <h3>このアプリについて</h3>
+      <p class="about">青空縦組は、青空文庫の作品を本のような縦組みで読むために、個人で作っているアプリです。利用者のデータは集めていません。本文は、青空文庫の皆さんが入力し、校正したものです。</p>
+      <p class="about" id="aboutSupport" hidden></p>
+      <details class="dev">
+        <summary>作り手向けの情報</summary>
+        <h3>組版の切り替え（見比べ用）</h3>
+          <div class="turns" id="engines">
+            <button type="button" data-engine="on">自作の組版</button>
+            <button type="button" data-engine="off">ブラウザ任せ</button>
+          </div>
+          <div class="turns" id="hangs">
+            <button type="button" data-hang="on">句読点をぶら下げる</button>
+            <button type="button" data-hang="off">ぶら下げない</button>
+          </div>
+          <p class="note">切り替えると、行の分かれ方と下端のそろい方の違いを見比べられます。</p>
+        <h3>注記の読み取り結果</h3>
+        <dl class="kv" id="infoReport"></dl>
+        <ul class="unk" id="infoUnknown"></ul>
+        <h3>組版エンジンの処理</h3>
+        <dl class="kv" id="infoEngine"></dl>
+        <h3>中間データの見本（ルビを含む最初の行）</h3>
+        <pre class="json" id="infoJson"></pre>
+        <div class="btnrow">
+          <button type="button" id="btnOpen2">ファイルを開く</button>
+          <button type="button" id="btnSample">組版見本に戻す</button>
+        </div>
+      </details>
+    </div>
   </section>
 
   <div class="tour" id="tour" hidden role="dialog" aria-label="使い方ナビ">
@@ -627,11 +653,11 @@ const SAMPLE = [
 ].join("\n");
 
 /* ---------- 版情報（GitHubに置くときに書き換わる） ---------- */
-const APP_VERSION = "28", APP_DATE = "2026-11-09";
+const APP_VERSION = "29", APP_DATE = "2026-11-09";
 const APP_NOTES = [
-  "「探す」の索引に絞り込みを加えました。読む時間・分類・新字新仮名だけ・手引きあり、を組み合わせられます（たとえば「5分以内」の「小説・物語」）。条件を選ぶと「条件に合う作品を見る」から一覧へ進めます",
-  "絞り込みは、作家や作品名の索引にも、文字で探した結果にも効きます。選んだ条件は次に開いたときも残ります",
-  "手引きと解説のある作品には、一覧に「手引きあり」の印を付けました"
+  "メニューの中身を、したいことに合わせて並べ直しました。「探す」は本棚・今日の一冊・索引のタブに分け、本棚には読みかけの作品の「あと約◯分」を出します",
+  "「情報」は「この作品」と「アプリ」のタブに分けました。この作品では、読む時間や表記・分類・初出が見られ、誤りや表示の崩れを知らせることもできます。使い方ナビや設定は「アプリ」にあります",
+  "「表示」のタブは、おすすめ・文字・色と紙・めくりの四つにしました。「目次」のいちばん上には、いま読んでいるところ（頁と、あと何分か）を出します"
 ]
 
 /* 応援のリンク（決まったら入れる。空のあいだは出さない） */
@@ -1583,12 +1609,18 @@ function updateFolio(){
   $("#nombre").textContent = !pages.length ? "" : spread ? (q ? String(pageIdx + 2) : "") : String(pageIdx + 1);
   $("#nombre2").textContent = spread && pages.length ? String(pageIdx + 1) : "";
 }
+function saveProgress(){
+  if (!docKey || isSample || !pages.length) return;
+  const last = pageIdx + (spread ? 1 : 0) >= pages.length - 1;
+  try { store.set(progKey(), last ? 1 : +(pageIdx / Math.max(1, pages.length - 1)).toFixed(3)); } catch (e) {}
+}
 function updateStatus(){
   updateFolio();
   $("#pageNo").textContent = spread && pages[pageIdx + 1] ? `${pageIdx + 1}–${pageIdx + 2} / ${pages.length}` : `${pageIdx + 1} / ${pages.length}`;
   $("#trackFill").style.width = (pages.length > 1 ? pageIdx / (pages.length - 1) * 100 : 100) + "%";
   updateRibbon();
   updateEndHint();
+  saveProgress();
 }
 function updateEndHint(){
   // スクロールでは最後の頁の頭まで流しきれないので、端まで来たかで見る
@@ -1747,19 +1779,51 @@ function workRow(w){
     <span class="wk-t">${esc(w[1])}${w[3] ? `<small>${esc(w[3])}</small>` : ""}</span>
     <span class="wk-m">${esc(by)}${tags.join("")}</span>${w[11] ? `<span class="wk-m">底本：${esc(w[11])}</span>` : ""}</button></div>`;
 }
+/* 読んだ割合（本棚に「あと約◯分」を出すため）。作品の番号があれば番号で、なければ作品名と作家名で覚える */
+const progKey = () => "aozora:prog:" + (curWork ? "w" + curWork : "f" + docKey);
+let findTab = null;
 async function renderFind(){
   const body = $("#findBody"), q = norm($("#q").value);
+  $("#findTabs").hidden = !!q;
   if (!q){
     const books = (await shelf.all()).sort((a, b) => b.at - a.at);
-    body.innerHTML = `<h3>今日の一頁</h3><div id="today"><p class="find-empty">今日の一頁を選んでいます…</p></div><h3>本棚</h3>` + (books.length ? books.map(b => `<div class="wk"><button type="button" class="wk-go" data-shelf="${esc(b.id)}">
-      <span class="wk-t">${esc(b.title)}</span><span class="wk-m">${esc(b.author)}<span class="tag">端末に保存済み</span></span></button>
-      <button type="button" class="wk-del" data-del="${esc(b.id)}" aria-label="本棚から外す">外す</button></div>`).join("")
-      : `<p class="find-empty">読んだ作品はここに並び、電波のない場所でも開けます。上の欄に作品名や作家名を入れて探してください。</p>`);
-    body.insertAdjacentHTML("beforeend", `<h3>索引から探す</h3><div id="browse"></div>`);
+    const tab = findTab || (books.length ? "shelf" : "index");
+    document.querySelectorAll("#findTabs button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.ftab === tab)));
+    if (tab === "today"){
+      body.innerHTML = `<div id="today"><p class="find-empty">今日の一冊を選んでいます…</p></div><p class="find-empty">手引きは、作品を読む前の道しるべとしてAIが本文を読んで作成したものです。毎日かわります。</p>`;
+      renderToday(books);
+      return;
+    }
+    if (tab === "index"){
+      body.innerHTML = `<div id="browse"></div>`;
+      renderBrowse();
+      return;
+    }
+    // 本棚：読みかけを上に、読み終えたものを下に
+    if (!books.length){
+      body.innerHTML = `<p class="find-empty">読んだ作品はここに並び、電波のない場所でも開けます。上の欄に作品名や作家名を入れるか、「索引」から探してください。</p>
+        <div class="btnrow"><button type="button" data-goto="index">索引を開く</button><button type="button" data-goto="today">今日の一冊を見る</button></div>`;
+      body.querySelectorAll("[data-goto]").forEach(b => b.onclick = () => { findTab = b.dataset.goto; renderFind(); });
+      return;
+    }
+    let d = null; try { d = await loadIndex(); } catch (e) {}
+    const info = b => {
+      const f = store.get("aozora:prog:" + b.id, null);
+      const w = d && /^w\d+$/.test(b.id) ? d.w.find(x => x[0] === +b.id.slice(1)) : null;
+      if (f == null) return {done:false, html:""};
+      if (f >= 0.98) return {done:true, html:`<span class="shelf-prog done">読了</span>`};
+      const rest = w && w[12] ? `・あと約${Math.max(1, Math.round(w[12] * (1 - f)))}分` : "";
+      return {done:false, html:`<span class="shelf-prog">${Math.max(1, Math.round(f * 100))}%まで${rest}</span>`};
+    };
+    const rows = books.map(b => ({b, ...info(b)}));
+    const row = ({b, html}) => `<div class="wk"><button type="button" class="wk-go" data-shelf="${esc(b.id)}">
+      <span class="wk-t">${esc(b.title)}${html}</span><span class="wk-m">${esc(b.author)}<span class="tag">端末に保存済み</span></span></button>
+      <button type="button" class="wk-del" data-del="${esc(b.id)}" aria-label="本棚から外す">外す</button></div>`;
+    const reading = rows.filter(r => !r.done), done = rows.filter(r => r.done);
+    body.innerHTML = (reading.length ? `<h3>読みかけ</h3>` + reading.map(row).join("") : "") + (done.length ? `<h3>読み終えた作品</h3>` + done.map(row).join("") : "")
+      + `<p class="find-empty">本棚の作品は、電波のない場所でも開けます。</p>`;
     body.querySelectorAll("[data-shelf]").forEach(b => b.onclick = () => openShelf(b.dataset.shelf));
     body.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => { await shelf.del(b.dataset.del); renderFind(); });
-    renderBrowse();
-    renderToday(books);
     return;
   }
   body.innerHTML = `<p class="find-empty">作品一覧を読み込んでいます…</p>`;
@@ -1815,6 +1879,7 @@ function showAuthor(a){
   const p = IDX && IDX.p[a]; if (!p) return;
   closeGreet(); closeEnd();
   browse = {mode:"author", path:[rowOf(head(p[2])), String(a)]};
+  findTab = "index";
   $("#q").value = "";
   openSheet("#sheetFind"); renderFind();
   setTimeout(() => { const b = $("#browse"); if (b) b.scrollIntoView({block:"start"}); }, 300);
@@ -1950,7 +2015,7 @@ async function showEnd(){
     + (SUPPORT.url ? `<p class="support"><a href="${esc(SUPPORT.url)}" target="_blank" rel="noopener">${esc(SUPPORT.label)}</a></p>` : "");
   $("#endBtns").innerHTML = `<button type="button" id="endBack">最後の頁に戻る</button><button type="button" class="primary" id="endFind">次の作品を探す</button>`;
   $("#endBack").onclick = closeEnd;
-  $("#endFind").onclick = () => { closeEnd(); $("#q").value = ""; openSheet("#sheetFind"); renderFind(); };
+  $("#endFind").onclick = () => { closeEnd(); $("#q").value = ""; findTab = "today"; openSheet("#sheetFind"); renderFind(); };
   wireAuthors($("#endBody"));
   app.classList.remove("immersed");
   $("#endcard").hidden = false;
@@ -2145,6 +2210,9 @@ function fillToc(){
 }
 function fillMarks(){
   fillToc();
+  const pct = pages.length > 1 ? Math.round(pageIdx / (pages.length - 1) * 100) : 100;
+  $("#markPos").innerHTML = `<b>${esc(doc.title)}</b>　${esc($("#pageNo").textContent)}頁（全体の${pct}%）`;
+  loadIndex().then(() => { const w = curWorkEntry(); if (w && w[12] && pct < 100) $("#markPos").insertAdjacentText("beforeend", `・あと約${Math.max(1, Math.round(w[12] * (100 - pct) / 100))}分`); }).catch(() => {});
   const m = marks().map((x, k) => ({...x, k, j:lineOfPos(x)})).sort((a, b) => a.j - b.j);
   const ul = $("#bmList");
   if (!m.length){ ul.innerHTML = `<li><p class="bm-empty">まだありません。読んでいる頁で上のボタンを押すと挟めます。</p></li>`; }
@@ -2176,9 +2244,21 @@ function toggleMark(){
 /* ---------- 情報パネル ---------- */
 function fillInfo(){
   const r = doc.report;
-  $("#infoWork").innerHTML = `<dt>題名</dt><dd>${esc(doc.title)}</dd>` +
-    (doc.sub.length ? `<dt>副題など</dt><dd>${esc(doc.sub.join("　"))}</dd>` : "") +
-    `<dt>著者</dt><dd>${esc(doc.author)}</dd><dt>本文</dt><dd>${doc.lines.length.toLocaleString()} 行</dd>`;
+  const base = `<dt>題名</dt><dd>${esc(doc.title)}</dd>` +
+    (doc.sub.length ? `<dt>副題など</dt><dd>${esc(doc.sub.join("　"))}</dd>` : "") + `<dt>著者</dt><dd>${esc(doc.author)}</dd>`;
+  $("#infoWork").innerHTML = base;
+  const first = colField(doc.colophon, "初出");
+  loadIndex().then(() => {
+    const w = curWorkEntry(); if (!w) { if (first) $("#infoWork").innerHTML = base + `<dt>初出</dt><dd>${esc(first)}</dd>`; return; }
+    const p = IDX.p[w[7][0]], g = GENRES.find(([l, f]) => f(w));
+    $("#infoWork").innerHTML = base +
+      (p && p[3] ? `<dt>生没年</dt><dd>${p[3]}–${p[4] || ""}</dd>` : "") +
+      (w[12] ? `<dt>読む時間</dt><dd>${fmtMin(w[12])}</dd>` : "") +
+      `<dt>表記</dt><dd>${KANA_LABEL[w[4]]}</dd>` + (g ? `<dt>分類</dt><dd>${g[0]}</dd>` : "") +
+      ((w[13] || first) ? `<dt>初出</dt><dd>${esc(w[13] || first)}</dd>` : "");
+  }).catch(() => {});
+  const rt = `本文の誤り：${doc.title}`, rb = [`作品：${doc.title}（${doc.author}）`, `頁：${$("#pageNo").textContent}`, "", "気づいたこと（誤字・ルビ・表示の崩れなど）："].join("\n");
+  $("#infoReportLink").innerHTML = docKey && !isSample ? `<a href="${REPORT_BASE}?title=${encodeURIComponent(rt)}&body=${encodeURIComponent(rb)}" target="_blank" rel="noopener">この作品の誤りや表示の崩れを知らせる</a>` : "";
   fillHints(); fillVersion();
   $("#infoGuide").hidden = true;
   Promise.all([loadIndex(), guidesReady()]).then(() => { const g = guideOf(curWorkEntry()); if (g){ $("#infoGuideText").textContent = g.t; $("#infoGuide").hidden = false; } }).catch(() => {});
@@ -2261,7 +2341,8 @@ function openDock(){
   $("#sheetView").hidden = false;
   app.classList.add("tuning");
   app.classList.remove("immersed");
-  showPane(store.get("aozora:pane", "moji"));
+  const pn = store.get("aozora:pane", "moji");
+  showPane(["osusume", "moji", "iro", "mekuri"].includes(pn) ? pn : "moji");
 }
 function showPane(name){
   document.querySelectorAll(".tabs button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.pane === name)));
@@ -2272,9 +2353,16 @@ document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => showPan
 
 $("#btnOpen").onclick = $("#btnOpen2").onclick = () => $("#file").click();
 $("#btnFind").onclick = () => { openSheet("#sheetFind"); renderFind(); loadIndex().catch(() => {}); };
+document.querySelectorAll("#findTabs button").forEach(b => b.onclick = () => { findTab = b.dataset.ftab; renderFind(); $("#sheetFind").scrollTop = 0; });
 $("#file").onchange = e => { const f = e.target.files[0]; if (f) openFile(f); e.target.value = ""; };
 $("#btnView").onclick = () => { $("#sheetView").hidden ? openDock() : closeDock(); };
-$("#btnInfo").onclick = () => { openSheet("#sheetInfo"); fillVersion(); loadIndex().then(fillVersion, () => {}); };
+function showInfoTab(t){
+  document.querySelectorAll("#infoTabs button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.itab === t)));
+  document.querySelectorAll("[data-ipane]").forEach(x => { x.hidden = x.dataset.ipane !== t; });
+  $("#sheetInfo").scrollTop = 0;
+}
+document.querySelectorAll("#infoTabs button").forEach(b => b.onclick = () => showInfoTab(b.dataset.itab));
+$("#btnInfo").onclick = () => { showInfoTab("work"); openSheet("#sheetInfo"); fillInfo(); fillVersion(); loadIndex().then(fillVersion, () => {}); };
 $("#btnMark").onclick = () => { openSheet("#sheetMark"); fillMarks(); };
 $("#bmAdd").onclick = toggleMark;
 $("#btnSample").onclick = () => { store.set("aozora:last", null); loadText(SAMPLE, false); closeSheets(); };
@@ -2636,7 +2724,7 @@ function applyPreset(id){
 const TOUR = [
   {title:"頁のめくり方", text:"本文の左を押すと次の頁、右を押すと前の頁へ進みます。指で横になぞってもめくれます。中央を押すと上下の帯が消えて、本を読むような画面になります。", zones:true},
   {title:"しおりと、ことばの手がかり", text:"本文の中央あたりを二回続けて押すと、その行にしおりを挟めます。点線の印のある言葉を押すと、色や昔の単位の手がかりが出ます。どの字でも長押しすると、旧字体などを調べられます。"},
-  {title:"上の帯のボタン", text:"「探す」で作品を探して読み始められます。「表示」で文字や紙の見え方を、「目次」で章への移動や挟んだしおりを、「情報」で作品の底本やこの案内を見られます。", hl:".bar.top .tools"},
+  {title:"上の帯のボタン", text:"「探す」には本棚・今日の一冊・索引があります。「表示」で文字や紙の見え方を、「目次」で章への移動やしおりを、「情報」でこの作品の手引きや底本、アプリの設定を見られます。", hl:".bar.top .tools"},
   {title:"まずは、読む場面を選びましょう", text:"「表示」の「おすすめ」で読む場面を選ぶと、文字の大きさや配色がまとめて決まります。今から開いてみますか？", last:true}
 ];
 let tourAt = 0;
