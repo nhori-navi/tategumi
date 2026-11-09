@@ -21,7 +21,7 @@ img{max-width:100%}
 <title>青空縦組</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;600&family=Noto+Serif+JP:wght@400;600&family=BIZ+UDMincho&family=Zen+Kaku+Gothic+New:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;600&family=Noto+Serif+JP:wght@400;600&family=BIZ+UDMincho&family=Zen+Old+Mincho:wght@400;600&family=Klee+One:wght@400;600&family=Zen+Kaku+Gothic+New:wght@400;500&display=swap">
 <style>
 /* 版面：画面中央に一枚の紙面。上下の帯は読書中は隠れ、紙面の大きさは変わらない */
 :root{
@@ -401,6 +401,8 @@ details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
           <button type="button" data-face="Shippori Mincho" style="font-family:'Shippori Mincho',serif">しっぽり明朝</button>
           <button type="button" data-face="Noto Serif JP" style="font-family:'Noto Serif JP',serif">源ノ明朝</button>
           <button type="button" data-face="BIZ UDMincho" style="font-family:'BIZ UDMincho',serif">BIZ UD明朝</button>
+          <button type="button" data-face="Zen Old Mincho" style="font-family:'Zen Old Mincho',serif">Zen オールド明朝</button>
+          <button type="button" data-face="Klee One" style="font-family:'Klee One',serif">クレー（教科書体）</button>
         </div>
         <div class="field"><label for="rngSize">文字サイズ</label><input id="rngSize" type="range" min="12" max="30" step="1"><output id="outSize"></output></div>
         <div class="field"><label for="rngLh">行間</label><input id="rngLh" type="range" min="1.6" max="2.4" step="0.05"><output id="outLh"></output></div>
@@ -605,10 +607,10 @@ const SAMPLE = [
 ].join("\n");
 
 /* ---------- 版情報（GitHubに置くときに書き換わる） ---------- */
-const APP_VERSION = "21", APP_DATE = "2026-11-09";
+const APP_VERSION = "22", APP_DATE = "2026-11-09";
 const APP_NOTES = [
-  "ことばの手がかりは、字の脇（点線の印のあたり）を押しても開くようにしました。右端や左端の行で、押したつもりが頁がめくれてしまうことがあったためです",
-  "頁の左に一行分の余白が余ることがあったのを直し、版面いっぱいに行が入るようにしました。左右の余白の釣り合いがよくなります"
+  "ことばの手がかりは、同じ章の中では最初に出てきたところにだけ付けるようにしました。章のない作品では、作品の中で最初の一回だけです",
+  "書体に「Zen オールド明朝」と「クレー（教科書体）」を加えました。古風な明朝と、手で書いたようなやわらかい書体です（「表示」→「文字」）"
 ]
 
 /* 応援のリンク（決まったら入れる。空のあいだは出さない） */
@@ -864,7 +866,11 @@ const dictReady = fetch("kotoba.json").then(r => r.ok ? r.json() : []).then(rows
 function annotateDoc(doc){
   doc.kotoba = [];
   doc.report.kotoba = 0;
+  // 同じ語の手がかりは、同じ章（見出しで区切った範囲。見出しのない作品は作品全体）では最初の一回だけ出す
+  const seen = new Set();
+  const once = key => { if (seen.has(key)) return false; seen.add(key); return true; };
   for (const L of doc.lines){
+    if (L.heading) seen.clear();
     if (!L.cells.length) continue;
     let str = ""; const at = [];
     L.cells.forEach((c, k) => { for (let t = 0; t < c.ch.length; t++) at.push(k); str += c.ch; });
@@ -878,6 +884,7 @@ function annotateDoc(doc){
       const a = at[m.index], b = at[m.index + m[0].length - 1] + 1;
       for (let k = a; k < b; k++) if (taken[k]) return;
       for (let k = a; k < b; k++) taken[k] = 1;
+      if (!once((info.kind || "") + ":" + m[0])) return;
       const id = doc.kotoba.push({text:m[0], ...info}) - 1;
       L.spans.push({t:"kt", s:a, e:b, c:`kt kt-${id}`});
       doc.report.kotoba++;
@@ -892,6 +899,7 @@ function annotateDoc(doc){
         let free = true; for (let k = sp.s; k < sp.e; k++) if (taken[k]) free = false;
         if (!free) continue;
         for (let k = sp.s; k < sp.e; k++) taken[k] = 1;
+        if (!once("w:" + e.word)) continue;
         const id = doc.kotoba.push({kind:"word", text:base, ...e}) - 1;
         L.spans.push({t:"kt", s:sp.s, e:sp.e, c:`kt kt-${id} wd`});
         doc.report.kotoba++;
@@ -909,6 +917,7 @@ function annotateDoc(doc){
           if (!free) continue;
           for (let k = a; k < b; k++) taken[k] = 1;
           const e = DICT.bareMap.get(m[0]);
+          if (!once("w:" + e.word)) continue;
           const id = doc.kotoba.push({kind:"word", text:m[0], ...e}) - 1;
           L.spans.push({t:"kt", s:a, e:b, c:`kt kt-${id} wd`});
           doc.report.kotoba++;
