@@ -231,6 +231,8 @@ details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
 .today-m span{font-size:12px;color:var(--ink-soft)}
 .today-m button{justify-self:start;border:1px solid var(--accent)!important;color:var(--accent);padding:7px 12px;font-size:13px;margin-top:4px}
 @media (max-width:420px){.today{grid-template-columns:1fr}.today-v{height:10em;max-width:none;width:100%}}
+.today.has-guide{grid-template-columns:1fr}
+.today-v.guide{font-size:14px;max-width:none;width:100%;height:12.5em;-webkit-mask-image:none;mask-image:none}
 .find-empty{font-size:13px;color:var(--ink-soft);margin:4px 0}
 /* 柱とノンブル：読書中（帯を隠したとき）だけ、本のように頁の上に出す */
 .folio{position:absolute;left:0;right:0;bottom:100%;margin-bottom:calc(var(--my,12px) + 6px);display:flex;align-items:baseline;
@@ -272,6 +274,14 @@ details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
 /* 作家と作品の紹介（データから組み立てる） */
 .intro{display:grid;gap:3px;font-size:12px;color:var(--ink-soft);line-height:1.6;margin-top:2px}
 .intro .more{justify-self:start;border:0!important;padding:0;color:var(--accent);font-size:12px;text-decoration:underline;text-underline-offset:3px}
+/* 手引きと解説（AIが作成） */
+.today-tag{display:inline-block;font-size:11px;color:var(--accent);border:1px solid var(--accent);border-radius:999px;padding:0 7px;margin-right:6px;line-height:1.6}
+.guide-note{font-size:11px;color:var(--ink-soft)}
+.endcard .tour-card{max-height:calc(100dvh - 32px);overflow-y:auto}
+.kaisetsu{margin:0;border-top:1px solid var(--rule);padding-top:8px}
+.kaisetsu summary{font-size:13px;color:var(--accent);cursor:pointer}
+.kaisetsu p{font-size:14px;line-height:1.85;margin:6px 0 2px}
+.info-guide{font-size:14px;line-height:1.85;margin:0}
 /* 最後の頁の目印 */
 #endHint{position:absolute;left:0;top:100%;margin-top:8px;font-family:var(--f-ui);font-size:12px;color:var(--accent);background:none;border:0;padding:4px 2px;z-index:3}
 #endHint:hover,#endHintBar:hover{text-decoration:underline;text-underline-offset:3px}
@@ -490,6 +500,7 @@ details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
     <h2>情報 <button class="x" type="button" data-close>閉じる</button></h2>
     <h3>作品</h3>
     <dl class="kv" id="infoWork"></dl>
+    <div id="infoGuide" hidden><h3>この作品の手引き</h3><p class="info-guide" id="infoGuideText"></p><p class="guide-note">AIが本文を読んで作成した手引きです。結末には触れていません。</p></div>
     <h3>この作品の手がかりと注</h3>
     <div id="infoHints"></div>
     <h3>底本・入力・校正</h3>
@@ -607,10 +618,11 @@ const SAMPLE = [
 ].join("\n");
 
 /* ---------- 版情報（GitHubに置くときに書き換わる） ---------- */
-const APP_VERSION = "25", APP_DATE = "2026-11-09";
+const APP_VERSION = "26", APP_DATE = "2026-11-09";
 const APP_NOTES = [
-  "旧仮名づかいの作品で、気になる語を長押しすると、いまの仮名づかいでの書き方が出るようにしました（「云ふ」→「云う」、「さういふやうに」→「そういうように」、ルビの「すざくおほぢ」→「すざくおおじ」など）。原文はそのまま残しています",
-  "ことばの手がかりを見直しました。「太刀」「提灯」のように、読めれば意味も分かる語は外し、「火桶（ひおけ）」「嚏（くさめ）」「庫裡（くり）」「掻巻（かいまき）」など、読めても意味が分かりにくい言葉を二百あまり加えました。江戸の時刻（亥刻＝夜四つ、など）も引けます"
+  "作品の「手引き」と「解説」を読めるようにしました（まずは「羅生門」「山月記」「走れメロス」「ごん狐」など二十作から）。どちらもAIが本文を読んで作成したものです",
+  "手引きは結末に触れない作品の紹介で、今日の一頁に出るほか、「情報」でもいつでも読めます。今日の一頁は、手引きのある作品から選ぶようにしました",
+  "解説は結末まで含めた読みどころで、作品を読み終えたときの「読了」のカードに出ます"
 ]
 
 /* 応援のリンク（決まったら入れる。空のあいだは出さない） */
@@ -1796,14 +1808,22 @@ function showAuthor(a){
 }
 const wireAuthors = root => root.querySelectorAll("[data-author]").forEach(b => b.onclick = () => showAuthor(+b.dataset.author));
 
+/* 作品の手引きと解説（AIが本文を読んで作成）。鍵は「作品名|人物ID」で、同じ作品の版違いに共通 */
+let GUIDES = null, guidesLoading = null;
+const guidesReady = () => GUIDES ? Promise.resolve(GUIDES) : (guidesLoading || (guidesLoading = fetch("guides.json").then(r => r.ok ? r.json() : {}).catch(() => ({})).then(g => GUIDES = g)));
+const guideOf = w => GUIDES && w ? GUIDES[`${w[1]}|${+w[10].split("/")[0]}`] || null : null;
+
 /* 今日の一頁：日ごとに、まだ本棚にない作品から一節を選んで見せる */
 const dayNo = () => { const t = new Date(); return t.getFullYear() * 1000 + Math.floor((t - new Date(t.getFullYear(), 0, 0)) / 864e5); };
 async function todayPick(books){
   const d = await loadIndex(), day = dayNo();
+  await guidesReady();
   const owned = new Set((books || []).map(b => b.id));
   let pick = store.get("aozora:today", null);
   if (!pick || pick.day !== day || pick.first === undefined){
-    const cands = d.w.filter(w => w[6] === 2 && w[12] >= 3 && w[12] <= 60 && !owned.has("w" + w[0]));
+    let cands = d.w.filter(w => w[6] === 2 && w[12] >= 3 && w[12] <= 60 && !owned.has("w" + w[0]));
+    const withGuide = cands.filter(guideOf);                  // 手引きのある作品を優先する
+    if (withGuide.length) cands = withGuide;
     const keep = pick && pick.day === day ? d.w.find(x => x[0] === pick.id) : null;   // 同じ日なら同じ作品のまま
     const w = keep || cands[((day * 2654435761) >>> 0) % cands.length];
     pick = {day, id:w[0], excerpt:"", first:""};
@@ -1824,19 +1844,28 @@ async function todayPick(books){
   const ex = pick.excerpt ? (pick.excerpt.length > 150 ? pick.excerpt.slice(0, 150) + "……" : pick.excerpt) : "";
   return {w, ex, first:pick.first || ""};
 }
-const todayHtml = (w, ex, btn, first) => `<div class="today" data-id="${w[0]}">${ex ? `<div class="today-v">${esc(ex)}</div>` : ""}
-    <div class="today-m"><b>${esc(w[1])}</b><span>${esc(names(w[7]))}・${fmtMin(w[12])}</span>
+const todayHtml = (w, ex, btn, first) => { const g = guideOf(w); return `<div class="today${g ? " has-guide" : ""}" data-id="${w[0]}">${g ? `<div class="today-v guide">${esc(g.t)}</div>` : ex ? `<div class="today-v">${esc(ex)}</div>` : ""}
+    <div class="today-m">${g ? `<span><span class="today-tag">手引き</span><span class="guide-note">AIが作成</span></span>` : ""}<b>${esc(w[1])}</b><span>${esc(names(w[7]))}・${fmtMin(w[12])}</span>
     <span>${KANA_LABEL[w[4]]}${w[11] ? "・底本：" + esc(w[11]) : ""}</span>${introHtml(w, first)}${btn ? `
-    <button type="button" id="todayGo">この作品を読む</button>` : ""}</div></div>`;
+    <button type="button" id="todayGo">この作品を読む</button>` : ""}</div></div>`; };
 async function renderToday(books){
   if (!$("#today")) return;
   let t; try { t = await todayPick(books); } catch (e) { if ($("#today")) $("#today").innerHTML = `<p class="find-empty">通信できる場所で開くと、今日の一頁が出ます。</p>`; return; }
   if (!t || !$("#today")) return;
   $("#today").innerHTML = todayHtml(t.w, t.ex, true, t.first);
   wireAuthors($("#today"));
+  requestAnimationFrame(() => fitGuides($("#today")));
   $("#todayGo").onclick = () => openWork(t.w[0], $("#today .today"));
 }
 
+// 手引きは全文を見せたいので、縦書きの枠に収まるまで文字を少しずつ小さくする
+function fitGuides(root){
+  for (const el of (root || document).querySelectorAll(".today-v.guide")){
+    el.style.fontSize = "";
+    let fs = parseFloat(getComputedStyle(el).fontSize);
+    while (el.scrollWidth > el.clientWidth + 1 && fs > 11){ fs -= 0.5; el.style.fontSize = fs + "px"; }
+  }
+}
 /* 開いたときの今日の一頁：使い方ナビと同じ形で重ね、読みかけがあれば続きへも戻れる */
 function closeGreet(){ $("#greet").hidden = true; }
 async function showGreet(){
@@ -1865,6 +1894,7 @@ async function showGreet(){
   };
   app.classList.remove("immersed");
   $("#greet").hidden = false;
+  fitGuides($("#greet"));
 }
 $("#greet").addEventListener("click", e => { if (e.target === $("#greet")) closeGreet(); });
 // アプリには「終了」がないので、日付が変わってから戻ってきたときも「開いたとき」とみなす
@@ -1891,11 +1921,12 @@ function closeEnd(){ $("#endcard").hidden = true; }
 const atEnd = () => turn !== "scroll" && pages.length && pageIdx + step() > pages.length - 1;
 async function showEnd(){
   if (isSample || !doc) return;
-  try { await loadIndex(); } catch (e) {}
-  const w = curWorkEntry();
+  try { await loadIndex(); await guidesReady(); } catch (e) {}
+  const w = curWorkEntry(), g = guideOf(w);
   const colo = doc.colophon, base = colField(colo, "底本"), inp = colField(colo, "入力"), proof = colField(colo, "校正");
   const credit = [base && `底本：${esc(base.slice(0, 80))}`, inp && `入力：<b>${esc(inp)}</b>`, proof && `校正：<b>${esc(proof)}</b>`].filter(Boolean);
   $("#endBody").innerHTML = `<h3>${esc(doc.title)}</h3><p class="ended">${esc(doc.author)}${w && w[12] ? `・${fmtMin(w[12])}の作品` : "の作品"}を、読み終えました。</p>`
+    + (g && g.k ? `<details class="kaisetsu" open><summary>作品の解説（結末に触れています）</summary><p>${esc(g.k)}</p><span class="guide-note">AIが本文を読んで作成した解説です。</span></details>` : "")
     + (w ? introHtml(w, colField(colo, "初出"), strip(doc.author)) : "")
     + (credit.length ? `<p class="credit">${credit.join("<br>")}<br>この本文は、青空文庫の皆さんが入力し、校正したものです。</p>` : "")
     + (SUPPORT.url ? `<p class="support"><a href="${esc(SUPPORT.url)}" target="_blank" rel="noopener">${esc(SUPPORT.label)}</a></p>` : "");
@@ -2096,6 +2127,8 @@ function fillInfo(){
     (doc.sub.length ? `<dt>副題など</dt><dd>${esc(doc.sub.join("　"))}</dd>` : "") +
     `<dt>著者</dt><dd>${esc(doc.author)}</dd><dt>本文</dt><dd>${doc.lines.length.toLocaleString()} 行</dd>`;
   fillHints(); fillVersion();
+  $("#infoGuide").hidden = true;
+  Promise.all([loadIndex(), guidesReady()]).then(() => { const g = guideOf(curWorkEntry()); if (g){ $("#infoGuideText").textContent = g.t; $("#infoGuide").hidden = false; } }).catch(() => {});
   $("#infoColo").textContent = doc.colophon.length ? doc.colophon.join("\n") : "（底本の情報が見つかりませんでした）";
   const unk = [...r.unknown.entries()].sort((a, b) => b[1] - a[1]);
   $("#infoReport").innerHTML = [
