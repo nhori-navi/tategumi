@@ -75,7 +75,10 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
   padding-left:max(var(--mx,20px),env(safe-area-inset-left,0px));padding-right:max(var(--mx,20px),env(safe-area-inset-right,0px));
   cursor:default;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:manipulation}
 #frame{position:relative;display:flex;justify-content:flex-end}
-#clip{position:relative;height:100%;overflow:hidden}
+#clip{position:relative;height:100%;overflow:hidden;contain:layout paint;will-change:opacity,transform}
+/* 本文は長い一枚の帯なので、合成用の層にしておき、めくりは帯をずらすだけで済ませる（描き直しを避ける） */
+#frame:not(.scrolling) #content,#content2{will-change:transform}
+#clip2{will-change:opacity,transform}
 #frame.scrolling #clip{writing-mode:vertical-rl;overflow-x:auto;overflow-y:hidden;overscroll-behavior:contain;scrollbar-width:none;touch-action:pan-x}
 #frame.scrolling #clip::-webkit-scrollbar{display:none}
 #frame.scrolling #content{position:relative;top:auto;right:auto;transform:none!important}
@@ -83,7 +86,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 #fold{position:absolute;top:calc(-.4 * var(--my,12px));bottom:calc(-.4 * var(--my,12px));pointer-events:none;
   background:linear-gradient(90deg,transparent,rgba(0,0,0,.035) 30%,rgba(0,0,0,.08) 50%,rgba(0,0,0,.035) 70%,transparent)}
 #frame:not(.spread) #clip2,#frame:not(.spread) #fold,#frame:not(.spread) #nombre2{display:none}
-#ghost{position:absolute;top:0;right:0;height:100%;overflow:hidden;pointer-events:none;background-color:var(--paper);background-image:var(--grain,none);background-size:var(--grain-size,auto);background-attachment:fixed}
+#ghost{position:absolute;top:0;right:0;height:100%;overflow:hidden;pointer-events:none;visibility:hidden;background-color:var(--paper);background-image:var(--grain,none);background-size:var(--grain-size,auto);background-attachment:fixed}
 #app{background-color:var(--paper);background-image:var(--grain,none);background-size:var(--grain-size,auto)}
 #content,#ghostContent,#content2{position:absolute;top:0;right:0;height:100%;
   writing-mode:vertical-rl;-webkit-writing-mode:vertical-rl;
@@ -424,7 +427,7 @@ details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
   </header>
 
   <main id="stage" aria-label="本文">
-    <div id="frame"><div id="clip"><div id="content"></div></div><div id="fold" aria-hidden="true"></div><div id="clip2" aria-hidden="true"><div id="content2"></div></div><div class="ribbon" id="ribbon" hidden></div><div class="folio" id="folio" aria-hidden="true"><span class="nombre" id="nombre"></span><span class="hashira" id="hashira"></span><span class="nombre" id="nombre2"></span></div><div id="ghost" aria-hidden="true" hidden><div id="ghostContent"></div></div><button type="button" id="endHint" hidden></button></div>
+    <div id="frame"><div id="clip"><div id="content"></div></div><div id="fold" aria-hidden="true"></div><div id="clip2" aria-hidden="true"><div id="content2"></div></div><div class="ribbon" id="ribbon" hidden></div><div class="folio" id="folio" aria-hidden="true"><span class="nombre" id="nombre"></span><span class="hashira" id="hashira"></span><span class="nombre" id="nombre2"></span></div><div id="ghost" aria-hidden="true"><div id="ghostContent"></div></div><button type="button" id="endHint" hidden></button></div>
   </main>
 
   <footer class="bar bottom">
@@ -680,11 +683,11 @@ const SAMPLE = [
 ].join("\n");
 
 /* ---------- 版情報（GitHubに置くときに書き換わる） ---------- */
-const APP_VERSION = "30", APP_DATE = "2026-11-09";
+const APP_VERSION = "31", APP_DATE = "2026-11-09";
 const APP_NOTES = [
-  "索引を作り直しました。「気分で選ぶ」「作家から選ぶ」「おまかせで選ぶ」の三つの入口から、一つずつ選んでいけます",
-  "「気分で選ぶ」では、泣ける・笑える・ぞくっとするなど十の気分で、約300作を選べます。作品に添えたひとことと気分の分け方は、AIが作品の内容をもとに選んだものです",
-  "上の欄の検索は、旧字と新字（鷗と鴎など）、ひらがなとカタカナのちがいを気にせず探せます。一字くらいの打ち間違いでも、似たことばの作品を出します"
+  "長い作品で頁をめくるときの重さを軽くしました。めくりの動きは、いまの頁をそっと消してから次の頁を浮かべる形になりました",
+  "作家のページの「まず読みたい作品」と検索の結果を、よく読まれている順に並べるようにしました。青空文庫が公開しているアクセスランキング（2022年）をもとにしています",
+  "索引を作り直しました（版30）。「気分で選ぶ」「作家から選ぶ」「おまかせで選ぶ」の三つの入口から選べます。上の欄の検索は、旧字と新字やかなの違い、一字くらいの打ち間違いがあっても探せます"
 ]
 
 /* 応援のリンク（決まったら入れる。空のあいだは出さない） */
@@ -1567,7 +1570,7 @@ function layout(keepAnchor){
     measureFont = `100px "${S.face}", "Shippori Mincho", serif`;
     content.className = ghostContent.className = content2.className = (S.engine ? "eng" : "") + (S.hints ? " hints" : "");
     content.innerHTML = renderDoc(doc, N);
-    ghostContent.innerHTML = content.innerHTML;
+    ghostContent.innerHTML = "";
     renderedSig = sig; content2Sig = "";
     fillEngineInfo();
   }
@@ -1590,11 +1593,13 @@ const TURNS = {
   ink:   {ms:900, dx:0,  blur:2, ease:"ease-in-out"}
 };
 const reduceMotion = () => window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+/* めくりの残像（いまは使っていない。古い呼び出しのために残す） */
+const ghostOff = () => { ghost.style.visibility = "hidden"; };
 function animateTurn(oldW, oldT, dir, oldMR){
   anims.forEach(a => a.cancel()); anims = [];
   const t = TURNS[turn];
-  if (!t || !oldW || reduceMotion()){ ghost.hidden = true; return; }
-  ghost.style.width = oldW; ghost.style.right = oldMR || "0px"; ghostContent.style.transform = oldT; ghost.hidden = false;
+  if (!t || !oldW || reduceMotion()){ ghostOff(); return; }
+  ghost.style.width = oldW; ghost.style.right = oldMR || "0px"; ghostContent.style.transform = oldT; ghost.style.visibility = "visible";
   const off = dir * t.dx;
   anims.push(ghost.animate(
     [{opacity:1, transform:"translateX(0)", filter:"blur(0)"}, {opacity:0, transform:`translateX(${off}px)`, filter:`blur(${t.blur}px)`}],
@@ -1602,24 +1607,23 @@ function animateTurn(oldW, oldT, dir, oldMR){
   anims.push(clip.animate(
     [{opacity:0, transform:`translateX(${-off}px)`}, {opacity:1, transform:"translateX(0)"}],
     {duration:t.ms, easing:t.ease}));
-  anims[0].onfinish = () => { ghost.hidden = true; };
+  anims[0].onfinish = () => { ghostOff(); };
 }
-/* 見開きのめくり：二頁をそっと消してから、次の二頁を浮かべる */
+/* めくり：いまの頁をそっと消してから、次の頁を浮かべる（見開きは二頁まとめて）。
+   版30までは前の頁の残像（全文の写し）を重ねていたが、長い作品では写しの分だけ重くなるのでやめた */
 function spreadTurn(paint, dir){
-  anims.forEach(a => a.cancel()); anims = []; ghost.hidden = true;
+  anims.forEach(a => a.cancel()); anims = []; ghostOff();
   const t = TURNS[turn];
   if (!t || reduceMotion()){ paint(); return; }
-  const off = dir * t.dx / 2, els = [clip, clip2];
-  const out = els.map(el => el.animate(
-    [{opacity:1, transform:"translateX(0)", filter:"blur(0)"}, {opacity:0, transform:`translateX(${off}px)`, filter:`blur(${t.blur}px)`}],
-    {duration:t.ms * 0.4, easing:"ease-in", fill:"forwards"}));
+  const off = dir * t.dx / 2, els = spread ? [clip, clip2] : [clip];
+  // ぼかしを使わないめくりでは filter を動かさない（動かすと毎コマ描き直しになる環境がある）
+  const k = (o, x, bl) => t.blur ? {opacity:o, transform:`translateX(${x}px)`, filter:`blur(${bl}px)`} : {opacity:o, transform:`translateX(${x}px)`};
+  const out = els.map(el => el.animate([k(1, 0, 0), k(0, off, t.blur)], {duration:t.ms * 0.4, easing:"ease-in", fill:"forwards"}));
   anims = out;
   out[0].onfinish = () => {
     if (anims !== out) return;
     paint(); out.forEach(a => a.cancel());
-    anims = els.map(el => el.animate(
-      [{opacity:0, transform:`translateX(${-off}px)`, filter:`blur(${t.blur}px)`}, {opacity:1, transform:"translateX(0)", filter:"blur(0)"}],
-      {duration:t.ms * 0.6, easing:t.ease}));
+    anims = els.map(el => el.animate([k(0, -off, t.blur), k(1, 0, 0)], {duration:t.ms * 0.6, easing:t.ease}));
   };
 }
 /* スクロール表示：本文の右端から何pxのところが見えているか */
@@ -1673,7 +1677,7 @@ function show(i, dir){
   if (!pages.length) return;
   if (turn === "scroll"){
     pageIdx = Math.max(0, Math.min(pages.length - 1, i));
-    anims.forEach(a => a.cancel()); anims = []; ghost.hidden = true;
+    anims.forEach(a => a.cancel()); anims = []; ghostOff();
     clip.style.width = frameW + "px"; clip.style.marginRight = "0px";
     const delta = pages[pageIdx].s - scrollStart();
     clip.scrollBy({left:-delta, behavior: dir && !reduceMotion() ? "smooth" : "auto"});
@@ -1696,10 +1700,9 @@ function show(i, dir){
     }
   };
   if (spread){
-    if (dir && pageIdx !== was) spreadTurn(paint, dir); else { anims.forEach(a => a.cancel()); anims = []; ghost.hidden = true; paint(); }
+    if (dir && pageIdx !== was) spreadTurn(paint, dir); else { anims.forEach(a => a.cancel()); anims = []; ghostOff(); paint(); }
   } else {
-    if (dir && pageIdx !== was) animateTurn(oldW, oldT, dir, oldMR); else { anims.forEach(a => a.cancel()); anims = []; ghost.hidden = true; }
-    paint();
+    if (dir && pageIdx !== was) spreadTurn(paint, dir); else { anims.forEach(a => a.cancel()); anims = []; ghostOff(); paint(); }
   }
   const p = pages[pageIdx];
   if (docKey && lines.length) store.set("aozora:pos2:" + docKey, posOfLine(p.first));
@@ -1897,7 +1900,7 @@ async function renderFind(){
     for (const t of terms){ const x = term(w, t); if (x < 0){ sc = -1; break; } sc += x; }
     if (sc >= 0){ hits.push([sc, w]); hitSet.add(w); }
   }
-  const rank = (a, b) => a[0] - b[0] || famous(b[1]) - famous(a[1]) || (b[1][6] === 2) - (a[1][6] === 2) || (a[1][6] & 1) - (b[1][6] & 1) || byYomi(a[1], b[1]);
+  const rank = (a, b) => a[0] - b[0] || rankOf(a[1]) - rankOf(b[1]) || famous(b[1]) - famous(a[1]) || (b[1][6] === 2) - (a[1][6] === 2) || (a[1][6] & 1) - (b[1][6] & 1) || byYomi(a[1], b[1]);
   hits.sort(rank);
   const hitW = uniqEd(hits.map(h => h[1]));
   // 見つかったものが少ないときは、一字ちがい（長いことばなら二字ちがい）まで広げる
@@ -2133,7 +2136,14 @@ let OMK = {t:1, k:0, kana:false};
 try { OMK = Object.assign(OMK, store.get("aozora:omakase", {})); } catch (e) {}
 let browse = {mode:"home"}, omkPicks = null;
 const byYomi = (a, b) => a[2].localeCompare(b[2], "ja");
-const famous = w => !!(kibunOf(w) || guideOf(w));
+// よく読まれている順位（青空文庫のアクセスランキング2022年・上位500）。版違いは、いちばん上の順位にそろえる
+let rankMap = null;
+function rankOf(w){
+  if (!w || !KIBUN || !KIBUN._rank || !IDX) return 9999;
+  if (!rankMap){ rankMap = new Map(); IDX.w.forEach(x => { const r = KIBUN._rank[x[9]]; if (r){ const k = edKey(x); rankMap.set(k, Math.min(r, rankMap.get(k) || 9999)); } }); }
+  return rankMap.get(edKey(w)) || 9999;
+}
+const famous = w => !!(kibunOf(w) || guideOf(w) || rankOf(w) < 9999);
 // 同じ作品の版違い（新字新仮名・旧字旧仮名など）は一つにまとめる。代表は、取り込めて、いまの表記に近い版
 const edKey = w => w[1] + "|" + w[3] + "|" + w[7].join(",");
 const edScore = w => (w[6] === 2 ? 0 : w[6] & 1 ? 20 : 10) + [0, 2, 3, 1, 4][w[4]];
@@ -2188,14 +2198,14 @@ async function renderBrowse(limit = 100){
     html = backHtml("作家から選ぶ") + (KIBUN._authors || []).map(([g, row]) => `<h3>${esc(g)}</h3><div class="names">${row.map(([nm, ids]) => {
       const c = Math.max(...ids.map(pid => n.get(d.pidx.get(pid)) || 0));
       return `<button type="button" data-au="${ids.join(",")}" data-name="${esc(nm)}">${esc(nm)}<small>${c}作</small></button>`; }).join("")}</div>`).join("")
-      + `<p class="find-empty">ここにない作家は、いちばん上の欄に名前を入れると探せます。名字だけ、ひらがなだけでもかまいません。</p>`;
+      + `<p class="find-empty">ここにない作家は、いちばん上の欄に名前を入れると探せます。名字だけ、ひらがなだけでもかまいません。</p><p class="find-empty">「よく読まれている順」は、青空文庫が公開しているアクセスランキング（2022年）をもとにしています。</p>`;
   } else if (B.mode === "author"){
     const idx = B.ids.map(pid => d.pidx.get(pid)).filter(i => i != null);
     const all = uniqEd(d.w.filter(w => !(w[6] & 1) && w[7].some(i => idx.includes(i))));
-    const seen = new Set(), pick = all.filter(w => famous(w) && w[6] === 2).filter(w => { const k = w[1]; if (seen.has(k)) return false; seen.add(k); return true; }).sort((x, y) => x[12] - y[12]);
+    const seen = new Set(), pick = all.filter(w => famous(w) && w[6] === 2).filter(w => { const k = w[1]; if (seen.has(k)) return false; seen.add(k); return true; }).sort((x, y) => rankOf(x) - rankOf(y) || x[12] - y[12]);
     const rest = all.filter(w => !pick.includes(w)).sort(byYomi);
     works = rest.filter(w => CHIPS[B.t || 0][1](w[12] || 0));
-    html = backHtml(`${B.name}（${all.length}作）`) + (pick.length ? `<h3>まず読みたい作品</h3>${pick.map(workRow).join("")}<h3>そのほかの作品</h3>` : "") + (rest.length ? chipsHtml(rest, B.t || 0) : "");
+    html = backHtml(`${B.name}（${all.length}作）`) + (pick.length ? `<h3>まず読みたい作品（よく読まれている順）</h3>${pick.map(workRow).join("")}<h3>そのほかの作品</h3>` : "") + (rest.length ? chipsHtml(rest, B.t || 0) : "");
   } else if (B.mode === "omakase"){
     if (!omkPicks) omkPicks = omakasePick(d);
     const row = (key, list, cur) => `<div class="chips">${list.map(([l], i) => `<button type="button" data-o${key}="${i}" aria-pressed="${cur === i}">${l}</button>`).join("")}</div>`;
