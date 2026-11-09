@@ -618,11 +618,10 @@ const SAMPLE = [
 ].join("\n");
 
 /* ---------- 版情報（GitHubに置くときに書き換わる） ---------- */
-const APP_VERSION = "26", APP_DATE = "2026-11-09";
+const APP_VERSION = "27", APP_DATE = "2026-11-09";
 const APP_NOTES = [
-  "作品の「手引き」と「解説」を読めるようにしました（まずは「羅生門」「山月記」「走れメロス」「ごん狐」など二十作から）。どちらもAIが本文を読んで作成したものです",
-  "手引きは結末に触れない作品の紹介で、今日の一頁に出るほか、「情報」でもいつでも読めます。今日の一頁は、手引きのある作品から選ぶようにしました",
-  "解説は結末まで含めた読みどころで、作品を読み終えたときの「読了」のカードに出ます"
+  "手引きと解説のある作品を四十二作に増やしました。「坊っちゃん」「こころ」「銀河鉄道の夜」「人間失格」「舞姫」「たけくらべ」などの長編や、江戸川乱歩の「二銭銅貨」「Ｄ坂の殺人事件」「人間椅子」も加わりました",
+  "推理小説の解説では、謎解きの肝心なところには触れないようにしています"
 ]
 
 /* 応援のリンク（決まったら入れる。空のあいだは出さない） */
@@ -1821,9 +1820,14 @@ async function todayPick(books){
   const owned = new Set((books || []).map(b => b.id));
   let pick = store.get("aozora:today", null);
   if (!pick || pick.day !== day || pick.first === undefined){
-    let cands = d.w.filter(w => w[6] === 2 && w[12] >= 3 && w[12] <= 60 && !owned.has("w" + w[0]));
+    // 一節を見せる作品は六十分以内に絞るが、手引きのある作品は長編も候補にする
+    let cands = d.w.filter(w => w[6] === 2 && w[12] >= 3 && (w[12] <= 60 || guideOf(w)) && !owned.has("w" + w[0]));
     const withGuide = cands.filter(guideOf);                  // 手引きのある作品を優先する
-    if (withGuide.length) cands = withGuide;
+    if (withGuide.length){
+      // 版違いが多い作品ほど選ばれやすくならないよう、作品ごとに一つにまとめる
+      const one = new Map(); for (const w of withGuide){ const k = `${w[1]}|${+w[10].split("/")[0]}`; if (!one.has(k)) one.set(k, w); }
+      cands = [...one.values()];
+    }
     const keep = pick && pick.day === day ? d.w.find(x => x[0] === pick.id) : null;   // 同じ日なら同じ作品のまま
     const w = keep || cands[((day * 2654435761) >>> 0) % cands.length];
     pick = {day, id:w[0], excerpt:"", first:""};
