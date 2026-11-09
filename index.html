@@ -605,10 +605,10 @@ const SAMPLE = [
 ].join("\n");
 
 /* ---------- 版情報（GitHubに置くときに書き換わる） ---------- */
-const APP_VERSION = "20", APP_DATE = "2026-11-08";
+const APP_VERSION = "21", APP_DATE = "2026-11-09";
 const APP_NOTES = [
-  "ことばの手がかりを見直しました。「鴉（からす）」「梯子（はしご）」のように、読めれば意味も分かる語には手がかりを出さないようにしました",
-  "代わりに、「丹塗（にぬり）」「市女笠（いちめがさ）」「直垂（ひたたれ）」「御新造（ごしんぞ）」など、読めても意味が分かりにくい古い言葉を百二十あまり加えました。昔の時刻（申の刻など）や月の呼び名も引けます"
+  "ことばの手がかりは、字の脇（点線の印のあたり）を押しても開くようにしました。右端や左端の行で、押したつもりが頁がめくれてしまうことがあったためです",
+  "頁の左に一行分の余白が余ることがあったのを直し、版面いっぱいに行が入るようにしました。左右の余白の釣り合いがよくなります"
 ]
 
 /* 応援のリンク（決まったら入れる。空のあいだは出さない） */
@@ -1312,14 +1312,20 @@ function measureLines(){
 function paginate(W){
   const ps = [];
   let cur = null;
+  // 頁に収まるかは、本文の行幅（行間の真ん中から）で測る。最初の行のルビが右へ少しはみ出す分（s〜b）は右の余白に出す
+  const bodyS = L => L.c - L.fs * S.lh / 2;
+  const mx = parseFloat(stage.style.getPropertyValue("--mx")) || 20;
   lines.forEach((L, j) => {
-    if (cur && (L.e - cur.s > W + 0.5 || L.brk)){
+    if (cur && (L.e - cur.b > W + 0.5 || L.brk)){
       // 頁の左端は、次の行のルビの手前まで（行間の真ん中で切ると、次の行のルビの端が見えてしまう）
       const prev = lines[j - 1];
       cur.e = Math.max(prev.d1 + 0.5, Math.min(cur.e, L.s - 0.5));
       ps.push(cur); cur = null;
     }
-    if (!cur) cur = {s: ps.length ? L.s : Math.min(0, L.s), e: L.e, first: j};
+    if (!cur){
+      const s0 = ps.length ? L.s : Math.min(0, L.s);
+      cur = {s: s0, b: Math.min(s0 + mx - 2, Math.max(s0, ps.length ? bodyS(L) : s0)), e: L.e, first: j};
+    }
     else cur.e = L.e;
   });
   if (cur) ps.push(cur);
@@ -1383,7 +1389,7 @@ function layout(keepAnchor){
   const j = lineOfPos(anchor);
   if (turn === "scroll"){
     pageIdx = pageOfLine(j);
-    clip.style.width = frameW + "px";
+    clip.style.width = frameW + "px"; clip.style.marginRight = "0px";
     clip.scrollBy({left:-(Math.max(0, lines[j] ? lines[j].s : 0) - scrollStart()), behavior:"auto"});
     updateStatus();
   } else show(pageOfLine(j));
@@ -1395,11 +1401,11 @@ const TURNS = {
   ink:   {ms:900, dx:0,  blur:2, ease:"ease-in-out"}
 };
 const reduceMotion = () => window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
-function animateTurn(oldW, oldT, dir){
+function animateTurn(oldW, oldT, dir, oldMR){
   anims.forEach(a => a.cancel()); anims = [];
   const t = TURNS[turn];
   if (!t || !oldW || reduceMotion()){ ghost.hidden = true; return; }
-  ghost.style.width = oldW; ghostContent.style.transform = oldT; ghost.hidden = false;
+  ghost.style.width = oldW; ghost.style.right = oldMR || "0px"; ghostContent.style.transform = oldT; ghost.hidden = false;
   const off = dir * t.dx;
   anims.push(ghost.animate(
     [{opacity:1, transform:"translateX(0)", filter:"blur(0)"}, {opacity:0, transform:`translateX(${off}px)`, filter:`blur(${t.blur}px)`}],
@@ -1473,30 +1479,31 @@ function show(i, dir){
   if (turn === "scroll"){
     pageIdx = Math.max(0, Math.min(pages.length - 1, i));
     anims.forEach(a => a.cancel()); anims = []; ghost.hidden = true;
-    clip.style.width = frameW + "px";
+    clip.style.width = frameW + "px"; clip.style.marginRight = "0px";
     const delta = pages[pageIdx].s - scrollStart();
     clip.scrollBy({left:-delta, behavior: dir && !reduceMotion() ? "smooth" : "auto"});
     updateStatus();
     if (docKey && lines.length) store.set("aozora:pos2:" + docKey, posOfLine(pages[pageIdx].first));
     return;
   }
-  const was = pageIdx, oldW = clip.style.width, oldT = content.style.transform;
+  const was = pageIdx, oldW = clip.style.width, oldT = content.style.transform, oldMR = clip.style.marginRight;
   pageIdx = Math.max(0, Math.min(pages.length - 1, i));
   if (spread) pageIdx -= pageIdx % 2;              // 見開きは 1–2、3–4 … の組で開く
   const paint = () => {
     const p = pages[pageIdx]; if (!p) return;
     clip.style.width = Math.max(1, Math.ceil(p.e - p.s)) + "px";
+    clip.style.marginRight = -(p.b - p.s).toFixed(1) + "px";
     content.style.transform = `translateX(${p.s}px)`;
     if (spread){
       const q = pages[pageIdx + 1];
       clip2.style.visibility = q ? "" : "hidden";
-      if (q){ clip2.style.width = Math.max(1, Math.ceil(q.e - q.s)) + "px"; content2.style.transform = `translateX(${q.s}px)`; }
+      if (q){ clip2.style.width = Math.max(1, Math.ceil(q.e - q.s)) + "px"; clip2.style.right = (frameW + gutter - (q.b - q.s)).toFixed(1) + "px"; content2.style.transform = `translateX(${q.s}px)`; }
     }
   };
   if (spread){
     if (dir && pageIdx !== was) spreadTurn(paint, dir); else { anims.forEach(a => a.cancel()); anims = []; ghost.hidden = true; paint(); }
   } else {
-    if (dir && pageIdx !== was) animateTurn(oldW, oldT, dir); else { anims.forEach(a => a.cancel()); anims = []; ghost.hidden = true; }
+    if (dir && pageIdx !== was) animateTurn(oldW, oldT, dir, oldMR); else { anims.forEach(a => a.cancel()); anims = []; ghost.hidden = true; }
     paint();
   }
   const p = pages[pageIdx];
@@ -2182,6 +2189,21 @@ function charAt(x, y){
   }
   return null;
 }
+/* 指先は字の脇（点線の印や行間）に少しずれやすい。押した点の近くにある手がかりの語を探す */
+function ktNear(x, y){
+  const pad = measureEm() * 0.6;
+  const boxes = [clip, clip2].filter(c => c.offsetParent).map(c => c.getBoundingClientRect());
+  let best = null, bd = Infinity;
+  for (const el of document.querySelectorAll("#content .kt, #content2 .kt")){
+    for (const r of el.getClientRects()){
+      if (x < r.left - pad || x > r.right + pad || y < r.top - pad / 2 || y > r.bottom + pad / 2) continue;
+      if (!boxes.some(b => r.right > b.left && r.left < b.right)) continue;     // 見えていない頁の語は除く
+      const d = Math.hypot(Math.max(r.left - x, 0, x - r.right), Math.max(r.top - y, 0, y - r.bottom));
+      if (d < bd){ bd = d; best = el; }
+    }
+  }
+  return best;
+}
 function lookupAt(target, x, y){
   const k = ktOf(target);
   if (k){ showCard(k, x, y); return true; }
@@ -2210,7 +2232,10 @@ stage.addEventListener("click", e => {
   if (swiped){ swiped = false; return; }
   if (lpFired){ lpFired = false; return; }
   if (hideCard()) return;
-  if (S.hints && ktOf(e.target)){ lookupAt(e.target, e.clientX, e.clientY); return; }
+  if (S.hints){
+    const near = ktOf(e.target) ? e.target : ktNear(e.clientX, e.clientY);
+    if (near && ktOf(near)){ lookupAt(near, e.clientX, e.clientY); return; }
+  }
   const g = e.target.closest(".gaiji");
   if (g){ toast(`外字：${g.dataset.note}`); return; }
   const r = stage.getBoundingClientRect(), x = (e.clientX - r.left) / r.width;
@@ -2370,7 +2395,7 @@ function applyPreset(id){
   Object.assign(S, rest, {preset:id, turn:t});
   turn = t; if (docKey) store.set("aozora:turn:" + docKey, t);
   applyTheme(); applyPaper(); renderPresets();
-  const go = () => { clip.scrollLeft = 0; clip.style.width = ""; changed(); };
+  const go = () => { clip.scrollLeft = 0; clip.style.width = ""; clip.style.marginRight = ""; changed(); };
   if (document.fonts && document.fonts.load) document.fonts.load(`${S.size}px "${S.face}"`, "夜の停車場").then(go, go); else go();
   toast(`「${p.name}」にしました。`);
 }
@@ -2454,7 +2479,7 @@ document.querySelectorAll("#turns button").forEach(b => b.onclick = () => {
   syncSettings();
   if (frame.classList.contains("scrolling") !== (turn === "scroll")){
     const pos = posOfLine(pages[pageIdx] ? pages[pageIdx].first : 0);
-    clip.scrollLeft = 0; clip.style.width = "";
+    clip.scrollLeft = 0; clip.style.width = ""; clip.style.marginRight = "";
     layout(pos);
   }
 });
