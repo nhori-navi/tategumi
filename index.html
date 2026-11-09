@@ -218,6 +218,33 @@ details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
 .au span:first-child{font-family:var(--f-text);font-size:15px}
 .au span:last-child{font-size:12px;color:var(--ink-soft);font-variant-numeric:tabular-nums;white-space:nowrap}
 .more{border:1px solid var(--rule)!important;padding:8px;font-size:13px}
+/* 索引（版30）：大きな入口と、押すだけのボタン */
+.ix-lead{font-size:14px;line-height:1.8;margin:6px 0 12px;color:var(--ink)}
+.doors{display:grid;gap:10px;margin:4px 0 10px}
+.doors.two{grid-template-columns:1fr 1fr}
+.door{display:grid;gap:4px;text-align:left;border:1px solid var(--rule)!important;border-radius:12px;padding:14px 16px;min-height:64px}
+.door:hover{border-color:var(--accent)!important}
+.door b{font-family:var(--f-text);font-size:19px;font-weight:600;color:var(--ink);line-height:1.4}
+.door span{font-size:13px;color:var(--ink-soft);line-height:1.5}
+.doors.two .door{padding:12px;min-height:58px}
+.doors.two .door b{font-size:clamp(14px,4vw,17px)}
+.doors.slim .door{min-height:0;padding:10px 14px;border-color:var(--accent)!important}
+.doors.slim .door b{font-size:16px;color:var(--accent)}
+.door.again{margin:6px 0 4px;border-color:var(--accent)!important}
+.door.again b{color:var(--accent);font-size:17px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 8px}
+.chips button{border:1px solid var(--rule)!important;border-radius:999px;padding:7px 12px;font-size:14.5px;min-height:40px}
+.chips button small{font-size:11px;color:var(--ink-soft);margin-left:6px;font-variant-numeric:tabular-nums}
+.chips button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent)!important;color:var(--paper)}
+.chips button[aria-pressed="true"] small{color:inherit;opacity:.85}
+.chips button:disabled{opacity:.35}
+.names{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.names button{border:1px solid var(--rule)!important;border-radius:10px;padding:10px 12px;font-family:var(--f-text);font-size:16px;text-align:left;display:flex;justify-content:space-between;align-items:baseline;gap:6px}
+.names button:hover{border-color:var(--accent)!important}
+.names button small{font-size:11px;color:var(--ink-soft);white-space:nowrap}
+.crumb .back{font-size:15px;padding:7px 14px;border-radius:999px}
+.crumb span{font-size:15px;color:var(--ink)}
+.wk-h{font-size:13.5px;color:var(--ink);line-height:1.6}
 /* 探す */
 .sheet.find{height:86%;display:flex;flex-direction:column;gap:10px}
 .sheet.find h2{margin:0}
@@ -484,7 +511,7 @@ details.dev summary{cursor:pointer;font-size:12px;color:var(--ink-soft)}
 
   <section class="sheet find" id="sheetFind" hidden aria-label="作品を探す">
     <h2>作品を探す <button class="x" type="button" data-close>閉じる</button></h2>
-    <input id="q" type="search" placeholder="作品名・作家名（ひらがなでも）" autocomplete="off" enterkeyhint="search">
+    <input id="q" type="search" placeholder="題名や作家名で探す（ひらがなでも）" autocomplete="off" enterkeyhint="search">
     <div class="stabs" id="findTabs" role="tablist">
       <button type="button" role="tab" data-ftab="shelf">本棚</button>
       <button type="button" role="tab" data-ftab="today">今日の一冊</button>
@@ -653,11 +680,11 @@ const SAMPLE = [
 ].join("\n");
 
 /* ---------- 版情報（GitHubに置くときに書き換わる） ---------- */
-const APP_VERSION = "29", APP_DATE = "2026-11-09";
+const APP_VERSION = "30", APP_DATE = "2026-11-09";
 const APP_NOTES = [
-  "メニューの中身を、したいことに合わせて並べ直しました。「探す」は本棚・今日の一冊・索引のタブに分け、本棚には読みかけの作品の「あと約◯分」を出します",
-  "「情報」は「この作品」と「アプリ」のタブに分けました。この作品では、読む時間や表記・分類・初出が見られ、誤りや表示の崩れを知らせることもできます。使い方ナビや設定は「アプリ」にあります",
-  "「表示」のタブは、おすすめ・文字・色と紙・めくりの四つにしました。「目次」のいちばん上には、いま読んでいるところ（頁と、あと何分か）を出します"
+  "索引を作り直しました。「気分で選ぶ」「作家から選ぶ」「おまかせで選ぶ」の三つの入口から、一つずつ選んでいけます",
+  "「気分で選ぶ」では、泣ける・笑える・ぞくっとするなど十の気分で、約300作を選べます。作品に添えたひとことと気分の分け方は、AIが作品の内容をもとに選んだものです",
+  "上の欄の検索は、旧字と新字（鷗と鴎など）、ひらがなとカタカナのちがいを気にせず探せます。一字くらいの打ち間違いでも、似たことばの作品を出します"
 ]
 
 /* 応援のリンク（決まったら入れる。空のあいだは出さない） */
@@ -1755,10 +1782,30 @@ const CARD = "https://www.aozora.gr.jp/cards/";
 const KANA_LABEL = ["新字新仮名", "新字旧仮名", "旧字旧仮名", "旧字新仮名", "その他"];
 let IDX = null, idxLoading = null, curWork = null;
 const norm = t => (t || "").replace(/[\u30a1-\u30f6]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60)).replace(/[\s　・･,，、。]/g, "").toLowerCase();
+/* あいまい検索のための下ごしらえ：旧字は新字に、小さい仮名は大きく、「ぢ・づ・を」は「じ・ず・お」に、記号と長音は外す */
+const OLDNEW = new Map(("鷗鴎龍竜澤沢濱浜邊辺邉辺齋斎齊斉髙高﨑崎國国學学藝芸櫻桜戀恋與与晝昼會会傳伝圓円廣広實実壽寿眞真鐵鉄讀読變変歸帰氣気聲声體体獨独惠恵榮栄驛駅樂楽萬万豐豊禮礼靜静黑黒德徳增増畫画燈灯舊旧雜雑繪絵從従齒歯總総證証譯訳狹狭兒児圖図對対發発聽聴處処卷巻戰戦戲戯拂払亂乱歡歓觀観寫写將将燒焼稻稲縣県彌弥藏蔵屆届據拠擧挙檢検歲歳淺浅滿満澁渋爐炉獸獣當当盡尽碎砕祕秘稱称絲糸續続縱縦肅粛臺台舍舎莊荘螢蛍衞衛觸触譽誉豫予賣売贊賛輕軽遲遅郞郎醉酔釋釈鑛鉱關関隱隠雙双靈霊顯顕驗験髮髪鬪闘鷄鶏麥麦黃黄齡齢龜亀邨村".match(/../gu) || []).map(x => [...x]));
+const SMALLK = {"ぁ":"あ","ぃ":"い","ぅ":"う","ぇ":"え","ぉ":"お","っ":"つ","ゃ":"や","ゅ":"ゆ","ょ":"よ","ゎ":"わ","ぢ":"じ","づ":"ず","ゐ":"い","ゑ":"え","を":"お","ゔ":"ぶ"};
+const foldK = t => norm((t || "").normalize("NFKC")).replace(/./gu, c => OLDNEW.get(c) || SMALLK[c] || c).replace(/[ー－―‐\-「」『』〔〕（）()［］\[\]！!？?〜~…:：;；'"“”‘’]/g, "");
+// 打ち間違いを許す照合：t のどこかに、p と k 字以内の違いで重なる所があるか
+const approxBuf = new Int16Array(64);
+function approx(p, t, k){
+  const m = Math.min(p.length, 60), D = approxBuf;
+  for (let i = 0; i <= m; i++) D[i] = i;
+  for (let j = 0; j < t.length; j++){
+    let diag = D[0]; D[0] = 0;
+    for (let i = 1; i <= m; i++){ const tmp = D[i]; D[i] = Math.min(D[i] + 1, D[i - 1] + 1, diag + (p[i - 1] === t[j] ? 0 : 1)); diag = tmp; }
+    if (D[m] <= k) return true;
+  }
+  return false;
+}
 function loadIndex(){
   if (IDX) return Promise.resolve(IDX);
   return idxLoading || (idxLoading = fetch("index.json").then(r => { if (!r.ok) throw new Error(); return r.json(); }).then(d => {
-    d.w.forEach(w => { w.k = norm(w[1] + w[2] + w[3]); w.ak = norm(w[7].map(i => d.p[i][1] + d.p[i][2]).join("")); });
+    d.w.forEach(w => { w.tk = foldK(w[1]); w.yk = foldK(w[2]); w.k = w.tk + w.yk + foldK(w[3]); w.ak = foldK(w[7].map(i => d.p[i][1] + d.p[i][2]).join("")); });
+    d.byId = new Map(d.w.map(w => [w[0], w]));
+    d.pidx = new Map(d.p.map((p, i) => [p[0], i]));
+    d.pk = d.p.map(p => [foldK(p[1]), foldK(p[2])]);
+    d.auCount = new Map(); d.w.forEach(w => { if (!(w[6] & 1)) w[7].forEach(i => d.auCount.set(i, (d.auCount.get(i) || 0) + 1)); });
     $("#findNote").textContent = `作品一覧 ${d.v} 時点・取り込み元 ${d.mirror} 時点`;
     setTimeout(() => { if (doc) fillVersion(); }, 0);
     return (IDX = d);
@@ -1768,7 +1815,8 @@ const fmtMin = m => m < 60 ? `約${m}分` : `約${Math.floor(m / 60)}時間${m %
 const TIMES = [["5分以内", m => m && m <= 5], ["15分以内", m => m > 5 && m <= 15], ["30分以内", m => m > 15 && m <= 30], ["1時間以内", m => m > 30 && m <= 60], ["1時間以上", m => m > 60]];
 const names = (list) => list.map(i => IDX.p[i][1]).join("・");
 function workRow(w){
-  const tags = [`<span class="tag">${KANA_LABEL[w[4]]}</span>`];
+  const tags = [], kb = kibunOf(w);
+  if (w[4] === 1 || w[4] === 2) tags.push(`<span class="tag">${w[4] === 2 ? "旧字・" : ""}旧仮名</span>`);
   if (/^K/.test(w[5])) tags.push(`<span class="tag">児童</span>`);
   if (w[12]) tags.push(`<span class="tag">${fmtMin(w[12])}</span>`);
   if (guideOf(w)) tags.push(`<span class="tag">手引きあり</span>`);
@@ -1777,13 +1825,13 @@ function workRow(w){
   const by = names(w[7]) + (w[8].length ? `（${names(w[8])}）` : "");
   return `<div class="wk" data-id="${w[0]}"><button type="button" class="wk-go" data-id="${w[0]}">
     <span class="wk-t">${esc(w[1])}${w[3] ? `<small>${esc(w[3])}</small>` : ""}</span>
-    <span class="wk-m">${esc(by)}${tags.join("")}</span>${w[11] ? `<span class="wk-m">底本：${esc(w[11])}</span>` : ""}</button></div>`;
+    <span class="wk-m">${esc(by)}${tags.join("")}</span>${kb ? `<span class="wk-h">${esc(kb[1])}</span>` : ""}${w[11] ? `<span class="wk-m">底本：${esc(w[11])}</span>` : ""}</button></div>`;
 }
 /* 読んだ割合（本棚に「あと約◯分」を出すため）。作品の番号があれば番号で、なければ作品名と作家名で覚える */
 const progKey = () => "aozora:prog:" + (curWork ? "w" + curWork : "f" + docKey);
 let findTab = null;
 async function renderFind(){
-  const body = $("#findBody"), q = norm($("#q").value);
+  const body = $("#findBody"), terms = $("#q").value.split(/[\s　]+/).map(foldK).filter(Boolean), q = terms.join("");
   $("#findTabs").hidden = !!q;
   if (!q){
     const books = (await shelf.all()).sort((a, b) => b.at - a.at);
@@ -1829,22 +1877,55 @@ async function renderFind(){
   body.innerHTML = `<p class="find-empty">作品一覧を読み込んでいます…</p>`;
   let d;
   try { d = await loadIndex(); } catch (e) { body.innerHTML = `<p class="find-empty">作品一覧を読み込めませんでした。通信できる場所でもう一度開いてください。</p>`; return; }
-  if (norm($("#q").value) !== q) return;
-  await guidesReady();
-  const hits = [];
+  if (foldK($("#q").value.replace(/[\s　]+/g, "")) !== q) return;
+  await Promise.all([guidesReady(), kibunReady()]);
+  // 気分や作家の名前を打ったときの近道
+  const moodHits = q.length < 2 ? [] : MOODS.map(([l, ws], i) => [i, [l, ...ws.split(" ")].map(foldK)]).filter(([, ws]) => ws.some(x => x.startsWith(q) || (x.length >= 2 && q.includes(x)))).map(([i]) => i);
+  const fa = famousAuthors(d);
+  const auHits = q.length < 2 ? [] : d.p.map((p, i) => {
+    const [nk, yk] = d.pk[i]; if (!d.auCount.get(i)) return null;
+    const sc = nk === q || yk === q ? 0 : nk.startsWith(q) || yk.startsWith(q) ? 1 : /[^ぁ-ん]/.test(q) && nk.includes(q) ? 2 : -1;
+    return sc < 0 ? null : [sc, i];
+  }).filter(Boolean).sort((x, y) => x[0] - y[0] || fa.has(y[1]) - fa.has(x[1]) || d.auCount.get(y[1]) - d.auCount.get(x[1])).slice(0, 3).map(x => x[1]);
+  // 作家の読みを一字二字まちがえたとき（「あくたがわりゅのすけ」など）
+  if (!auHits.length && q.length >= 4) d.p.forEach((p, i) => { if (auHits.length < 2 && d.auCount.get(i) && approx(q, d.pk[i][1].slice(0, q.length + 2), q.length >= 7 ? 2 : 1) && Math.abs(d.pk[i][1].length - q.length) <= 2) auHits.push(i); });
+  // 作品：題名がそのまま→題名の頭→題名か読みのどこか→作家名、の順。ことばを空白で区切ると、すべてを含む作品だけに
+  const term = (w, t) => w.tk === t || w.yk === t ? 0 : w.tk.startsWith(t) || w.yk.startsWith(t) ? 1 : w.k.includes(t) ? 2 : w.ak.includes(t) ? 3 : -1;
+  const hits = [], hitSet = new Set();
   for (const w of d.w){
-    if (!passF(w)) continue;
-    let sc = -1;
-    if (w.k.startsWith(q) || norm(w[2]).startsWith(q)) sc = 0;
-    else if (w.k.includes(q)) sc = 1;
-    else if (w.ak.includes(q)) sc = 2;
-    if (sc >= 0) hits.push([sc, w]);
+    let sc = 0;
+    for (const t of terms){ const x = term(w, t); if (x < 0){ sc = -1; break; } sc += x; }
+    if (sc >= 0){ hits.push([sc, w]); hitSet.add(w); }
   }
-  hits.sort((a, b) => a[0] - b[0] || a[1][2].localeCompare(b[1][2], "ja"));
-  body.innerHTML = filterBar() + (hits.length
-    ? `<h3>${hits.length.toLocaleString()} 件${hits.length > 80 ? "（はじめの80件）" : ""}${fActive() ? "・絞り込み中" : ""}</h3>` + hits.slice(0, 80).map(h => workRow(h[1])).join("")
-    : `<p class="find-empty">見つかりませんでした。${fActive() ? "絞り込みの条件をゆるめるか、" : ""}作品名の一部や、作家の名字だけでも探せます。</p>`);
-  wireFilter(body, () => renderFind());
+  const rank = (a, b) => a[0] - b[0] || famous(b[1]) - famous(a[1]) || (b[1][6] === 2) - (a[1][6] === 2) || (a[1][6] & 1) - (b[1][6] & 1) || byYomi(a[1], b[1]);
+  hits.sort(rank);
+  const hitW = uniqEd(hits.map(h => h[1]));
+  // 見つかったものが少ないときは、一字ちがい（長いことばなら二字ちがい）まで広げる
+  let near = [];
+  if (!moodHits.length && !auHits.length && terms.every(t => t.length >= (hitW.length ? 5 : 3)) && hitW.length < 5){
+    for (const w of d.w){
+      if (hitSet.has(w)) continue;
+      let sc = 0;
+      // 題名の頭か、作家の読みの頭と比べる（途中の一部分と比べると、関係のない作品まで拾ってしまうため）
+      for (const t of terms){
+        const k = t.length >= 7 ? 2 : 1, n = t.length + k + 1;
+        if (approx(t, w.yk.slice(0, n), k) || approx(t, w.tk.slice(0, n), k)) continue;
+        if (w[7].some(i => approx(t, d.pk[i][1].slice(0, n), k) || approx(t, d.pk[i][0].slice(0, n), k))) { sc += 1; continue; }
+        sc = -1; break;
+      }
+      if (sc >= 0 && (!hitW.length || famous(w))) near.push([sc, w]);
+    }
+    near.sort(rank); near = uniqEd(near.map(h => h[1])).slice(0, 10);
+  }
+  const cuts = (moodHits.length || auHits.length) ? `<div class="doors slim">${moodHits.map(i => `<button type="button" class="door" data-gomood="${i}"><b>気分「${MOODS[i][0]}」の作品を見る</b><span>${moodWorks(d, i).length}作</span></button>`).join("")}${auHits.map(i => `<button type="button" class="door" data-goau="${d.p[i][0]}" data-name="${esc(dispName(d.p[i][1]))}"><b>${esc(dispName(d.p[i][1]))}の作品をまとめて見る</b><span>${d.auCount.get(i)}作</span></button>`).join("")}</div>` : "";
+  body.innerHTML = cuts + (hitW.length
+    ? `<h3>${hitW.length.toLocaleString()} 件${hitW.length > 80 ? "（はじめの80件）" : ""}</h3>` + hitW.slice(0, 80).map(workRow).join("")
+      + (hitW.length > 80 ? `<p class="find-empty">ことばを空白で区切って足すと、しぼりこめます（例：「太宰 走れ」）。</p>` : "")
+    : near.length ? "" : `<p class="find-empty">見つかりませんでした。題名の一部や、作家の名字だけでも探せます。</p>`)
+    + (near.length ? `<h3>${hitW.length ? "ほかに、" : ""}似たことばの作品</h3>` + near.map(workRow).join("") : "");
+  const toIndex = b => { browse = b; $("#q").value = ""; findTab = "index"; renderFind(); $("#sheetFind").scrollTop = 0; };
+  body.querySelectorAll("[data-gomood]").forEach(x => x.onclick = () => toIndex({mode:"mood", i:+x.dataset.gomood, t:0}));
+  body.querySelectorAll("[data-goau]").forEach(x => x.onclick = () => toIndex({mode:"author", ids:[+x.dataset.goau], name:x.dataset.name, t:0, from:{mode:"authors"}}));
   body.querySelectorAll(".wk-go[data-id]").forEach(b => b.onclick = () => openWork(+b.dataset.id, b.parentElement));
 }
 /* 奥付（底本・初出・入力・校正）から一項目を取り出す。続きの行（字下げされた行）もつなぐ */
@@ -1878,7 +1959,7 @@ function introHtml(w, first, name){
 function showAuthor(a){
   const p = IDX && IDX.p[a]; if (!p) return;
   closeGreet(); closeEnd();
-  browse = {mode:"author", path:[rowOf(head(p[2])), String(a)]};
+  browse = {mode:"author", ids:[p[0]], name:dispName(p[1]), t:0, from:{mode:"authors"}};
   findTab = "index";
   $("#q").value = "";
   openSheet("#sheetFind"); renderFind();
@@ -2024,10 +2105,6 @@ $("#endcard").addEventListener("click", e => { if (e.target === $("#endcard")) c
 $("#endHintBar").onclick = () => showEnd();
 
 /* 索引：作家／作品名／分類 */
-const ROWS = [["あ","あいうえお"],["か","かきくけこ"],["さ","さしすせそ"],["た","たちつてと"],["な","なにぬねの"],["は","はひふへほ"],["ま","まみむめも"],["や","やゆよ"],["ら","らりるれろ"],["わ","わをん"]];
-const BASE = {"ぁ":"あ","ぃ":"い","ぅ":"う","ぇ":"え","ぉ":"お","ゔ":"う","が":"か","ぎ":"き","ぐ":"く","げ":"け","ご":"こ","ざ":"さ","じ":"し","ず":"す","ぜ":"せ","ぞ":"そ","だ":"た","ぢ":"ち","っ":"つ","づ":"つ","で":"て","ど":"と","ば":"は","ぱ":"は","び":"ひ","ぴ":"ひ","ぶ":"ふ","ぷ":"ふ","べ":"へ","ぺ":"へ","ぼ":"ほ","ぽ":"ほ","ゃ":"や","ゅ":"ゆ","ょ":"よ","ゎ":"わ","ゐ":"い","ゑ":"え"};
-const head = y => { const c = norm(y)[0] || ""; return BASE[c] || c; };
-const rowOf = c => (ROWS.find(r => r[1].includes(c)) || [null])[0];
 const GENRES = [
   ["児童文学", w => /^K/.test(w[5])], ["小説・物語", w => /^913/.test(w[5])], ["詩歌", w => /^911/.test(w[5])], ["戯曲", w => /^912/.test(w[5])],
   ["随筆・評論", w => /^914/.test(w[5])], ["日記・書簡・紀行", w => /^915/.test(w[5])], ["記録・手記", w => /^916/.test(w[5])],
@@ -2035,103 +2112,118 @@ const GENRES = [
   ["社会", w => /^3/.test(w[5])], ["自然科学", w => /^4/.test(w[5])], ["技術・産業", w => /^[56]/.test(w[5])],
   ["芸術", w => /^7/.test(w[5])], ["言語", w => /^8/.test(w[5])]
 ];
-let browse = {mode:"time", path:[]};
-/* 絞り込み：読む時間・分類・表記・手引き。どの索引にも、文字で探した結果にも同じ条件が効く。条件はこの端末に覚えておく */
-let F = {time:-1, genre:-1, kana:false, guide:false};
-try { F = Object.assign(F, store.get("aozora:filter", {})); } catch (e) {}
-// 絞り込みの「◯分以内」は、それより短い作品もすべて含む（索引の「読む時間」は幅で区切っている）
-const FTIMES = [["5分以内", m => m && m <= 5], ["15分以内", m => m && m <= 15], ["30分以内", m => m && m <= 30], ["1時間以内", m => m && m <= 60], ["1時間以上", m => m > 60]];
-const fActive = () => F.time >= 0 || F.genre >= 0 || F.kana || F.guide;
-const passF = w => (F.time < 0 || FTIMES[F.time][1](w[12])) && (F.genre < 0 || GENRES[F.genre][1](w)) && (!F.kana || w[4] === 0) && (!F.guide || !!guideOf(w));
-function filterBar(){
-  const sel = (key, label, list) => `<select data-f="${key}" class="${F[key] >= 0 ? "on" : ""}" aria-label="${label}"><option value="-1">${label}：すべて</option>${list.map(([l], i) => `<option value="${i}" ${F[key] === i ? "selected" : ""}>${l}</option>`).join("")}</select>`;
-  return `<div class="filt">${browse.mode === "time" ? "" : sel("time", "読む時間", FTIMES)}${browse.mode === "genre" ? "" : sel("genre", "分類", GENRES)}
-    <button type="button" data-f="kana" aria-pressed="${F.kana}">新字新仮名だけ</button><button type="button" data-f="guide" aria-pressed="${F.guide}">手引きあり</button>${fActive() ? `<button type="button" class="clear" data-f="clear">解除</button>` : ""}</div>`;
-}
-function wireFilter(root, redraw){
-  const save = () => { store.set("aozora:filter", F); redraw(); };
-  root.querySelectorAll("select[data-f]").forEach(x => x.onchange = () => { F[x.dataset.f] = +x.value; save(); });
-  root.querySelectorAll("button[data-f]").forEach(x => x.onclick = () => {
-    const k = x.dataset.f;
-    if (k === "clear") F = {time:-1, genre:-1, kana:false, guide:false}; else F[k] = !F[k];
-    if (browse.mode === "flist" && !fActive()) browse = {mode:browse.prev || "time", path:[]};
-    save();
-  });
-}
+/* ---------- 索引：気分で・作家から・おまかせ ----------
+   何千件も並べても選べないので、どの入口も「選べる数」だけを見せる。
+   気分のデータ（kibun.json）はAIが選んだ約300作。鍵は手引きと同じ「作品名|人物ID」 */
+let KIBUN = null, kibunLoading = null;
+const kibunReady = () => KIBUN ? Promise.resolve(KIBUN) : (kibunLoading || (kibunLoading = fetch("kibun.json").then(r => r.ok ? r.json() : {}).catch(() => ({})).then(k => KIBUN = k)));
+const kibunOf = w => KIBUN && w ? KIBUN[`${w[1]}|${+w[10].split("/")[0]}`] || null : null;
+const MOODS = [
+  ["泣ける", "なける 涙 なみだ"], ["笑える", "わらえる 笑い おかしい 面白い おもしろい ユーモア"], ["心があたたまる", "あたたか 温か ほっこり やさしい 優しい"],
+  ["胸がすっとする", "すっと スカッと すかっと 痛快 つうかい 爽快"], ["ぞくっとする", "ぞくっと こわい 怖い 怪談 かいだん ホラー 不気味"],
+  ["ふしぎな世界へ", "ふしぎ 不思議 幻想 げんそう 空想"], ["しみじみ共感する", "しみじみ 共感 きょうかん"], ["考えさせられる", "かんがえ 考え"],
+  ["知らない世界を知る", "知らない しらない 知る 科学 かがく 歴史 れきし"], ["声に出して読みたい", "声に出して こえにだして 朗読 ろうどく 音読 おんどく"]
+];
+// 一覧の上の「時間」ボタン（その時間より短いものもすべて含む）
+const CHIPS = [["すべて", () => true], ["5分まで", m => m <= 5], ["15分まで", m => m <= 15], ["30分まで", m => m <= 30], ["1時間まで", m => m <= 60], ["もっと長く", m => m > 60]];
+const OTIMES = [["5分まで", m => m <= 5], ["15分まで", m => m <= 15], ["30分まで", m => m <= 30], ["1時間まで", m => m <= 60], ["長くてもよい", () => true]];
+const KINDS = [["なんでも", w => /^(9|K)/.test(w[5])], ["小説・物語", w => /^913/.test(w[5])], ["童話", w => /^K/.test(w[5])], ["詩・短歌・俳句", w => /^911/.test(w[5])],
+  ["随筆", w => /^91[45]/.test(w[5])], ["海外の作品", w => /^9[3-9]/.test(w[5])], ["科学・歴史など", w => /^[0-8]/.test(w[5])]];
+let OMK = {t:1, k:0, kana:false};
+try { OMK = Object.assign(OMK, store.get("aozora:omakase", {})); } catch (e) {}
+let browse = {mode:"home"}, omkPicks = null;
 const byYomi = (a, b) => a[2].localeCompare(b[2], "ja");
+const famous = w => !!(kibunOf(w) || guideOf(w));
+// 同じ作品の版違い（新字新仮名・旧字旧仮名など）は一つにまとめる。代表は、取り込めて、いまの表記に近い版
+const edKey = w => w[1] + "|" + w[3] + "|" + w[7].join(",");
+const edScore = w => (w[6] === 2 ? 0 : w[6] & 1 ? 20 : 10) + [0, 2, 3, 1, 4][w[4]];
+function uniqEd(list){
+  const best = new Map(), seen = new Set();
+  list.forEach(w => { const k = edKey(w), b = best.get(k); if (!b || edScore(w) < edScore(b)) best.set(k, w); });
+  return list.filter(w => { const k = edKey(w); if (seen.has(k)) return false; seen.add(k); return true; }).map(w => best.get(edKey(w)));
+}
 function listHtml(works, limit){
   return works.slice(0, limit).map(workRow).join("") + (works.length > limit ? `<button type="button" class="more" data-more="${limit + 100}">さらに表示（残り ${(works.length - limit).toLocaleString()} 件）</button>` : "");
 }
+const moodWorks = (d, i) => Object.entries(KIBUN || {}).filter(([k, v]) => k[0] !== "_" && v[0].includes(i)).map(([, v]) => d.byId.get(v[2])).filter(Boolean);
+function famousAuthors(d){
+  if (d.famous) return d.famous;
+  d.famous = new Set(); ((KIBUN && KIBUN._authors) || []).forEach(([, row]) => row.forEach(([, ids]) => ids.forEach(pid => { const i = d.pidx.get(pid); if (i != null) d.famous.add(i); })));
+  return d.famous;
+}
+// おまかせ：条件に合う作品から、知られた作品ほど出やすい重みで5作を選ぶ（同じ作品の版違いは一つに）
+function omakasePick(d){
+  const fa = famousAuthors(d), best = new Map();
+  for (const w of d.w){
+    if (w[6] !== 2 || w[12] < (OMK.t ? 3 : 2) || !OTIMES[OMK.t][1](w[12]) || !KINDS[OMK.k][1](w) || (OMK.kana && w[4] !== 0)) continue;
+    const k = edKey(w), b = best.get(k); if (!b || edScore(w) < edScore(b)) best.set(k, w);
+  }
+  // よく知られた作品を2作、知られた作家のそのほかの作品を2作、残りの中から思いがけない1作。足りなければほかの組から補う
+  const groups = [[], [], []];
+  best.forEach(w => groups[famous(w) ? 0 : w[7].some(i => fa.has(i)) ? 1 : 2].push(w));
+  const take = g => g.length ? g.splice(Math.floor(Math.random() * g.length), 1)[0] : null;
+  const out = [];
+  [0, 0, 1, 1, 2].forEach(i => { const w = take(groups[i]) || take(groups[0]) || take(groups[1]) || take(groups[2]); if (w) out.push(w[0]); });
+  return {ids:out, n:best.size};
+}
+const chipsHtml = (list, cur) => `<div class="chips" role="group" aria-label="読む時間">${CHIPS.map(([l, f], i) => { const n = list.filter(w => f(w[12] || 0)).length;
+  return `<button type="button" data-chip="${i}" aria-pressed="${cur === i}" ${n || !i ? "" : "disabled"}>${l}<small>${n}</small></button>`; }).join("")}</div>`;
+const backHtml = label => `<div class="crumb"><button type="button" class="back" data-back>‹ 戻る</button><span>${esc(label)}</span></div>`;
+const parentOf = B => B.mode === "mood" ? {mode:"moods"} : B.mode === "author" ? (B.from || {mode:"authors"}) : {mode:"home"};
 async function renderBrowse(limit = 100){
   const box = $("#browse"); if (!box) return;
   let d;
   try { d = await loadIndex(); } catch (e) { box.innerHTML = `<p class="find-empty">作品一覧を読み込めませんでした。通信できる場所でもう一度開いてください。</p>`; return; }
-  await guidesReady();
-  const seg = `<div class="seg">${[["time","読む時間"],["author","作家"],["title","作品名"],["genre","分類"]].map(([m, l]) => `<button type="button" data-mode="${m}" aria-pressed="${browse.mode === m}">${l}</button>`).join("")}</div>`;
-  const avail = d.w.filter(w => !(w[6] & 1) && passF(w));
-  let html = seg + filterBar(), works = null;
-  // 日替わりの並び（毎回ちがう作品に出会えるように）
-  const day = Math.floor(Date.now() / 864e5);
-  const mix = w => ((w[0] * 2654435761 + day * 40503) >>> 0) % 100000;
-  if (fActive() && browse.mode !== "flist" && !browse.path.length){
-    const n = avail.length;
-    html += `<button type="button" class="au hit" data-flist ${n ? "" : "disabled"}><span>条件に合う作品を見る</span><span>${n.toLocaleString()}作品</span></button>`;
-  }
-  const crumb = label => `<div class="crumb"><button type="button" data-back>戻る</button><span>${esc(label)}</span></div>`;
-  const [a, b] = browse.path;
-  if (browse.mode === "flist"){
-    // 取り込める作品を先に、日替わりの並びで
-    works = avail.slice().sort((x, y) => ((y[6] & 2) - (x[6] & 2)) || (mix(x) - mix(y)));
-    html += `<div class="crumb"><button type="button" data-unflist>戻る</button><span>条件に合う作品（${works.length.toLocaleString()}作品・日替わりの並び）</span></div>`;
-  } else if (browse.mode === "author"){
-    if (a == null){
-      const used = new Set(d.p.map(p => rowOf(head(p[2]))));
-      html += `<div class="gojuon">${ROWS.map(r => `<button type="button" data-go="${r[0]}" ${used.has(r[0]) ? "" : "disabled"}>${r[0]}</button>`).join("")}</div>`;
-    } else if (b == null){
-      const count = new Map(); avail.forEach(w => w[7].forEach(i => count.set(i, (count.get(i) || 0) + 1)));
-      const ps = d.p.map((p, i) => [i, p]).filter(([i, p]) => rowOf(head(p[2])) === a && count.get(i)).sort((x, y) => x[1][2].localeCompare(y[1][2], "ja"));
-      html += crumb(`作家・${a}行（${ps.length}人）`) + ps.map(([i, p]) => `<button type="button" class="au" data-go="${i}"><span>${esc(p[1])}</span><span>${count.get(i)}作品</span></button>`).join("");
-    } else {
-      works = avail.filter(w => w[7].includes(+b)).sort(byYomi);
-      html += crumb(`${d.p[+b][1]}（${works.length}作品）`);
-    }
-  } else if (browse.mode === "title"){
-    if (a == null){
-      html += `<div class="gojuon">${ROWS.map(r => `<button type="button" data-go="${r[0]}">${r[0]}</button>`).join("")}</div>`;
-    } else if (b == null){
-      const row = ROWS.find(r => r[0] === a)[1];
-      const cnt = c => avail.filter(w => head(w[2]) === c).length;
-      html += crumb(`作品名・${a}行`) + `<div class="gojuon">${[...row].map(c => { const n = cnt(c); return `<button type="button" data-go="${c}" ${n ? "" : "disabled"}>${c}</button>`; }).join("")}</div>`;
-    } else {
-      works = avail.filter(w => head(w[2]) === b).sort(byYomi);
-      html += crumb(`作品名・「${b}」で始まる（${works.length.toLocaleString()}作品）`);
-    }
-  } else if (browse.mode === "time"){
-    if (a == null){
-      html += TIMES.map(([l, f], i) => `<button type="button" class="au" data-go="${i}"><span>${l}</span><span>${avail.filter(w => f(w[12])).length.toLocaleString()}作品</span></button>`).join("");
-      html += `<p class="find-empty">1分あたり500字として計算した目安です。</p>`;
-    } else {
-      // 同じ時間の中では、毎回ちがう作品に出会えるよう並びを日替わりにする
-      works = avail.filter(w => w[6] & 2 && TIMES[+a][1](w[12])).sort((x, y) => mix(x) - mix(y));
-      html += crumb(`${TIMES[+a][0]}で読める作品（${works.length.toLocaleString()}作品・日替わりの並び）`);
-    }
+  await Promise.all([guidesReady(), kibunReady()]);
+  const B = browse; let html = "", works = null;
+  if (B.mode === "moods"){
+    html = backHtml("気分で選ぶ") + `<div class="doors two">${MOODS.map(([l], i) => `<button type="button" class="door" data-mood="${i}"><b>${l}</b><span>${moodWorks(d, i).length}作</span></button>`).join("")}</div>
+      <p class="find-empty">気分の分け方と、作品に添えたひとことは、AIが作品の内容をもとに選んだものです。合わないと感じたときは、作品を開いて「情報」から知らせてください。</p>`;
+  } else if (B.mode === "mood"){
+    const all = moodWorks(d, B.i).sort((x, y) => x[12] - y[12]);
+    works = all.filter(w => CHIPS[B.t || 0][1](w[12]));
+    html = backHtml(`${MOODS[B.i][0]}（${all.length}作）`) + chipsHtml(all, B.t || 0) + `<p class="find-empty">短いものから順に並べています。</p>`;
+  } else if (B.mode === "authors"){
+    const n = new Map(); d.w.forEach(w => { if (!(w[6] & 1)) w[7].forEach(i => n.set(i, (n.get(i) || 0) + 1)); });
+    html = backHtml("作家から選ぶ") + (KIBUN._authors || []).map(([g, row]) => `<h3>${esc(g)}</h3><div class="names">${row.map(([nm, ids]) => {
+      const c = Math.max(...ids.map(pid => n.get(d.pidx.get(pid)) || 0));
+      return `<button type="button" data-au="${ids.join(",")}" data-name="${esc(nm)}">${esc(nm)}<small>${c}作</small></button>`; }).join("")}</div>`).join("")
+      + `<p class="find-empty">ここにない作家は、いちばん上の欄に名前を入れると探せます。名字だけ、ひらがなだけでもかまいません。</p>`;
+  } else if (B.mode === "author"){
+    const idx = B.ids.map(pid => d.pidx.get(pid)).filter(i => i != null);
+    const all = uniqEd(d.w.filter(w => !(w[6] & 1) && w[7].some(i => idx.includes(i))));
+    const seen = new Set(), pick = all.filter(w => famous(w) && w[6] === 2).filter(w => { const k = w[1]; if (seen.has(k)) return false; seen.add(k); return true; }).sort((x, y) => x[12] - y[12]);
+    const rest = all.filter(w => !pick.includes(w)).sort(byYomi);
+    works = rest.filter(w => CHIPS[B.t || 0][1](w[12] || 0));
+    html = backHtml(`${B.name}（${all.length}作）`) + (pick.length ? `<h3>まず読みたい作品</h3>${pick.map(workRow).join("")}<h3>そのほかの作品</h3>` : "") + (rest.length ? chipsHtml(rest, B.t || 0) : "");
+  } else if (B.mode === "omakase"){
+    if (!omkPicks) omkPicks = omakasePick(d);
+    const row = (key, list, cur) => `<div class="chips">${list.map(([l], i) => `<button type="button" data-o${key}="${i}" aria-pressed="${cur === i}">${l}</button>`).join("")}</div>`;
+    const cond = `${OTIMES[OMK.t][0]}・${KINDS[OMK.k][0]}${OMK.kana ? "・いまの仮名づかい" : ""}`;
+    html = backHtml("おまかせで選ぶ") + `<h3>「${cond}」で選んだ5作</h3>` + (omkPicks.ids.length ? omkPicks.ids.map(id => workRow(d.byId.get(id))).join("")
+        + `<button type="button" class="door again" data-again><b>ほかの5作を見る</b><span>この条件に合う作品は ${omkPicks.n.toLocaleString()} 作あります。よく知られた作品と、思いがけない作品をまぜて選んでいます</span></button>`
+        : `<p class="find-empty">この条件に合う作品がありません。下で時間か種類を変えてみてください。</p>`)
+      + `<h3>読む時間を変える</h3>${row("t", OTIMES, OMK.t)}<h3>種類を変える</h3>${row("k", KINDS, OMK.k)}
+      <div class="chips"><button type="button" data-okana aria-pressed="${OMK.kana}">いまの仮名づかいの作品だけ</button></div>`;
   } else {
-    if (a == null){
-      html += GENRES.map(([l, f], i) => `<button type="button" class="au" data-go="${i}"><span>${l}</span><span>${avail.filter(f).length.toLocaleString()}作品</span></button>`).join("");
-    } else {
-      works = avail.filter(GENRES[+a][1]).sort(byYomi);
-      html += crumb(`${GENRES[+a][0]}（${works.length.toLocaleString()}作品）`);
-    }
+    html = `<p class="ix-lead">題名や作家の名前がわかるときは、いちばん上の欄に入れてください。ひらがなでも、一字くらいまちがえても探せます。</p>
+      <div class="doors">${[["moods", "気分で選ぶ", "泣ける、笑える、ぞくっとする…十の気分から"], ["authors", "作家から選ぶ", "よく知られた作家、約70人から"], ["omakase", "おまかせで選ぶ", "読む時間と種類を決めると、5作を選びます"]]
+        .map(([m, t, s]) => `<button type="button" class="door" data-to="${m}"><b>${t}</b><span>${s}</span></button>`).join("")}</div>`;
   }
   if (works) html += listHtml(works, limit);
   box.innerHTML = html;
-  box.querySelectorAll("[data-mode]").forEach(x => x.onclick = () => { browse = {mode:x.dataset.mode, path:[]}; renderBrowse(); });
-  box.querySelectorAll("[data-go]").forEach(x => x.onclick = () => { browse.path.push(x.dataset.go); renderBrowse(); });
-  box.querySelectorAll("[data-back]").forEach(x => x.onclick = () => { browse.path.pop(); renderBrowse(); });
+  const go = b => { browse = b; renderBrowse(); $("#sheetFind").scrollTop = 0; };
+  box.querySelectorAll("[data-to]").forEach(x => x.onclick = () => go({mode:x.dataset.to}));
+  box.querySelectorAll("[data-back]").forEach(x => x.onclick = () => go(parentOf(B)));
+  box.querySelectorAll("[data-mood]").forEach(x => x.onclick = () => go({mode:"mood", i:+x.dataset.mood, t:0}));
+  box.querySelectorAll("[data-au]").forEach(x => x.onclick = () => go({mode:"author", ids:x.dataset.au.split(",").map(Number), name:x.dataset.name, t:0, from:B}));
+  box.querySelectorAll("[data-chip]").forEach(x => x.onclick = () => { B.t = +x.dataset.chip; renderBrowse(); });
   box.querySelectorAll("[data-more]").forEach(x => x.onclick = () => renderBrowse(+x.dataset.more));
-  box.querySelectorAll("[data-flist]").forEach(x => x.onclick = () => { browse = {mode:"flist", path:[], prev:browse.mode}; renderBrowse(); });
-  box.querySelectorAll("[data-unflist]").forEach(x => x.onclick = () => { browse = {mode:browse.prev || "time", path:[]}; renderBrowse(); });
-  wireFilter(box, () => renderBrowse());
+  const saveO = async () => { store.set("aozora:omakase", OMK); omkPicks = null; await renderBrowse(); const h = $("#browse h3"); if (h) h.scrollIntoView({block:"start", behavior:"smooth"}); };
+  box.querySelectorAll("[data-ot]").forEach(x => x.onclick = () => { OMK.t = +x.dataset.ot; saveO(); });
+  box.querySelectorAll("[data-ok]").forEach(x => x.onclick = () => { OMK.k = +x.dataset.ok; saveO(); });
+  box.querySelectorAll("[data-okana]").forEach(x => x.onclick = () => { OMK.kana = !OMK.kana; saveO(); });
+  box.querySelectorAll("[data-again]").forEach(x => x.onclick = () => { omkPicks = null; renderBrowse(); });
   box.querySelectorAll(".wk-go[data-id]").forEach(x => x.onclick = () => openWork(+x.dataset.id, x.parentElement));
 }
 function rowMessage(row, html){
@@ -2353,7 +2445,7 @@ document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => showPan
 
 $("#btnOpen").onclick = $("#btnOpen2").onclick = () => $("#file").click();
 $("#btnFind").onclick = () => { openSheet("#sheetFind"); renderFind(); loadIndex().catch(() => {}); };
-document.querySelectorAll("#findTabs button").forEach(b => b.onclick = () => { findTab = b.dataset.ftab; renderFind(); $("#sheetFind").scrollTop = 0; });
+document.querySelectorAll("#findTabs button").forEach(b => b.onclick = () => { if (b.dataset.ftab === "index" && (findTab || "index") === "index") browse = {mode:"home"}; findTab = b.dataset.ftab; renderFind(); $("#sheetFind").scrollTop = 0; });
 $("#file").onchange = e => { const f = e.target.files[0]; if (f) openFile(f); e.target.value = ""; };
 $("#btnView").onclick = () => { $("#sheetView").hidden ? openDock() : closeDock(); };
 function showInfoTab(t){
