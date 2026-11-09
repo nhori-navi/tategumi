@@ -607,10 +607,10 @@ const SAMPLE = [
 ].join("\n");
 
 /* ---------- 版情報（GitHubに置くときに書き換わる） ---------- */
-const APP_VERSION = "24", APP_DATE = "2026-11-09";
+const APP_VERSION = "25", APP_DATE = "2026-11-09";
 const APP_NOTES = [
-  "横書きの数字を、縦組みに合わせて立てるようにしました。二桁までは一字分の幅に横に並べ（縦中横）、三桁以上は一字ずつ立てます。「No.5」「3.14」や数式のような横書きの語の一部は、これまでどおり寝かせたままです",
-  "ルビが親文字より短いときは、真ん中に固めず、親文字の幅に均等に割り付けるようにしました。読みが各字の横に並び、紙の本の組み方に近づきます"
+  "旧仮名づかいの作品で、気になる語を長押しすると、いまの仮名づかいでの書き方が出るようにしました（「云ふ」→「云う」、「さういふやうに」→「そういうように」、ルビの「すざくおほぢ」→「すざくおおじ」など）。原文はそのまま残しています",
+  "ことばの手がかりを見直しました。「太刀」「提灯」のように、読めれば意味も分かる語は外し、「火桶（ひおけ）」「嚏（くさめ）」「庫裡（くり）」「掻巻（かいまき）」など、読めても意味が分かりにくい言葉を二百あまり加えました。江戸の時刻（亥刻＝夜四つ、など）も引けます"
 ]
 
 /* 応援のリンク（決まったら入れる。空のあいだは出さない） */
@@ -874,6 +874,74 @@ function kanaKey(t){
   return s;
 }
 
+/* 旧仮名づかい → 現代仮名づかい（読みの手助け。原文は書き換えない） */
+const KANA_IS = "きしちにひみりぎじびぴ", KANA_ES = "けせてねへめれげぜでべぺ";
+const SMALL_YU = c => c + "ゅう", SMALL_YO = c => c + "ょう";
+function contractKana(s){   // 字音の長音：やう→よう、ちう→ちゅう、せう→しょう、かう→こう など（もとから「う」と書かれたものだけ）
+  return s.replace(new RegExp(`([${KANA_IS}])やう`, "g"), (m, c) => SMALL_YO(c))
+          .replace(new RegExp(`([${KANA_IS}])う`, "g"), (m, c) => SMALL_YU(c))
+          .replace(new RegExp(`([${KANA_ES}])う`, "g"), (m, c) => SMALL_YO(KANA_IE[KANA_E.indexOf(c)]))
+          .replace(new RegExp(`([${KANA_A}])う`, "g"), (m, c) => KANA_O[KANA_A.indexOf(c)] + "う");
+}
+const odori = s => s.replace(/(.)ゝ/g, "$1$1").replace(/(.)ゞ/g, (m, c) => c + String.fromCharCode(c.charCodeAt(0) + 1));
+// ルビ（読みだけが書かれている）：語中のハ行はワ行に、字音の長音は縮める
+function modernReading(t){
+  let s = odori(t).replace(/ゐ/g, "い").replace(/ゑ/g, "え").replace(/を/g, "お");
+  // 「ぢ」「づ」は、旧仮名らしい形（ぢやう・ぢう・づゝ・語頭）のときだけ直す。連濁（はなぢ・みかづき）は今もそのまま
+  s = s.replace(/^ぢ/, "じ").replace(/^づ/, "ず").replace(/ぢ(?=や|ゆ|よ|う)/g, "じ").replace(/づつ$/, "ずつ");
+  if (!/(はな|ち)ぢ$/.test(s)) s = s.replace(/ぢ$/, "じ");                 // もみぢ・ふぢ・ついぢ（はなぢ・ちぢ は今もそのまま）
+  s = s.replace(/くわ(?=.)/g, "か").replace(/ぐわ(?=.)/g, "が");
+  // 字音の拗音（旧仮名では小さい字も大きく書く）：じやく→じゃく、しよく→しょく、しゆつ→しゅつ
+  s = s.replace(/([しじちきりびみ])や(?=く)/g, "$1ゃ").replace(/([しじちりぎ])よ(?=く)/g, "$1ょ").replace(/([しじち])ゆ(?=[つく])/g, "$1ゅ");
+  // 語中のハ行（同じ字が続く「はは」「ほほ」は除く）
+  s = [...s].map((c, i, a) => i > 0 && "はひへほ".includes(c) && a[i - 1] !== c ? "わいえお"["はひへほ".indexOf(c)] : c).join("");
+  s = contractKana(s);
+  s = s.replace(/(.)ふ/g, (m, c) => c + "う");          // 語中の「ふ」
+  s = s.replace(new RegExp(`([${KANA_ES}])う`, "g"), (m, c) => SMALL_YO(KANA_IE[KANA_E.indexOf(c)]))   // けふ→きょう、てふ→ちょう
+       .replace(new RegExp(`([${KANA_A}])う`, "g"), (m, c) => KANA_O[KANA_A.indexOf(c)] + "う")
+       .replace(/^あう/, "おう");                                                                       // あふぎ→おうぎ、あふみ→おうみ
+  return s;
+}
+// 本文：助詞の「は」「へ」「を」と紛れないよう、確かな形だけを直す。pre は前の字が漢字かどうか
+function modernBody(kana, pre){
+  let s = odori(kana).replace(/ゐ/g, "い").replace(/ゑ/g, "え");
+  s = s.replace(/けふ/g, "きょう").replace(/てふ/g, "ちょう");
+  s = s.replace(/(^|[おとこ])ほ/g, (m, c) => c ? c + "お" : m);                   // おほきい・とほる・こほり
+  if (pre){
+    s = s.replace(/^は(?=[れずうな])/, "わ").replace(/^ひ/, "い").replace(/^へ(?=[るたてらずばよなまれ])/, "え");
+  }
+  s = s.replace(/(かは(?=い))|あはれ|すなはち|いはゆる|いはば/g, m => m.replace("は", "わ"));
+  s = contractKana(s);
+  // 動詞の語尾の「ふ」（思ふ・云ふ・言ふこと）。「あふれる」のように後ろに続くものは直さない
+  s = s.replace(/ふ(?=$|[とのにもやよべでがかなね]|こと)/g, (m, off) => (off > 0 || pre) ? "う" : m);
+  return s;
+}
+const isKanji = c => c && !c.g && /[\u4e00-\u9fff々〆]/.test(c.ch);
+const isHira = c => c && !c.g && /[ぁ-ゖゝゞ]/.test(c.ch);
+// 長押しした字のまわりで、旧仮名の語を探して現代仮名を返す
+function kanaHelpAt(L, k){
+  if (!L || !L.cells[k]) return null;
+  const rb = L.spans.find(sp => sp.t === "ruby" && sp.s <= k && k < sp.e);
+  if (rb && /[ぁ-ゖ]/.test(rb.rt)){
+    const now = modernReading(rb.rt);
+    if (now !== rb.rt){ const base = L.cells.slice(rb.s, rb.e).map(c => c.ch).join(""); return {old:`${base}（${rb.rt}）`, now:`${base}（${now}）`}; }
+  }
+  if (!doc.oldKana) return null;
+  const C = L.cells;
+  let a = k, b = k;
+  if (isKanji(C[k])){ while (isKanji(C[b])) b++; if (!isHira(C[b])) return null; }
+  else if (!isHira(C[k])) return null;
+  const at = isHira(C[k]) ? k : b;
+  let ka = at; while (ka > 0 && isHira(C[ka - 1]) && at - ka < 6) ka--;          // 押した字の前後6字ほど
+  let kb = at; while (kb < C.length && isHira(C[kb]) && kb - at < 7) kb++;
+  const cutA = isHira(C[ka - 1]), cutB = isHira(C[kb]);
+  a = ka; if (!cutA) while (a > 0 && isKanji(C[a - 1]) && ka - a < 4) a--;
+  const kanji = C.slice(a, ka).map(c => c.ch).join(""), kana = C.slice(ka, kb).map(c => c.ch).join("");
+  const now = modernBody(kana, ka > a);
+  const dots = (t) => (cutA ? "…" : "") + t + (cutB ? "…" : "");
+  return now !== odori(kana) ? {old: dots(kanji + kana), now: dots(kanji + now)} : null;
+}
+
 /* ことば辞書（AIが作成した解説）：親文字と読みの組で引く */
 let DICT = null;
 const dictReady = fetch("kotoba.json").then(r => r.ok ? r.json() : []).then(rows => {
@@ -896,6 +964,7 @@ const dictReady = fetch("kotoba.json").then(r => r.ok ? r.json() : []).then(rows
 function annotateDoc(doc){
   doc.kotoba = [];
   doc.report.kotoba = 0;
+  { let n = 0; for (const L of doc.lines){ const t = L.cells.map(c => c.ch).join(""); n += (t.match(/[ゐゑ]|[さかやだら]う[。、だとにな]|でせう|ませう|[^あ-ん]ふ[。、と]/g) || []).length; if (n >= 5) break; } doc.oldKana = n >= 5; }
   // 同じ語の手がかりは、同じ章（見出しで区切った範囲。見出しのない作品は作品全体）では最初の一回だけ出す
   const seen = new Set();
   const once = key => { if (seen.has(key)) return false; seen.add(key); return true; };
@@ -2205,6 +2274,8 @@ function cardInner(k){
       : /ママ/.test(k.note) ? `底本のとおりに入力した箇所です（「ママ」は、誤りのように見えても原文のままという印です）。` : esc(k.note);
     return `<div class="k-kind">入力者の注</div><div class="k-word">${esc(k.text)}</div><div class="k-sub" style="color:var(--ink)">${body}</div>`;
   }
+  if (k.kind === "kana") return `<div class="k-kind">旧仮名づかい</div><div class="k-word">${esc(k.old)}</div>
+    <div class="k-main">${esc(k.now)}</div><div class="k-sub">いまの仮名づかいで書くと、こうなります。読みの手助けとして自動で直しているので、まれに誤ることがあります。原文はそのまま残しています。</div>`;
   if (k.kind === "kyuji") return `<div class="k-kind">旧字体</div><div class="k-big">${esc(k.text)}<span>→</span>${esc(k.shin)}</div>
     <div class="k-sub">「${esc(k.text)}」は「${esc(k.shin)}」の旧字体です。原文の字はそのまま残しています。</div>`;
   return "";
@@ -2235,6 +2306,32 @@ function charAt(x, y){
   }
   return null;
 }
+function linePosAt(x, y){
+  let node, off;
+  if (document.caretPositionFromPoint){ const c = document.caretPositionFromPoint(x, y); if (c){ node = c.offsetNode; off = c.offset; } }
+  else if (document.caretRangeFromPoint){ const r = document.caretRangeFromPoint(x, y); if (r){ node = r.startContainer; off = r.startOffset; } }
+  if (!node || node.nodeType !== 3) return null;
+  const p = node.parentElement.closest("p[data-i]"); if (!p) return null;
+  let o = off;
+  const rg = document.createRange();
+  for (const q of [off, off - 1]){
+    if (q < 0 || q >= node.length) continue;
+    rg.setStart(node, q); rg.setEnd(node, q + 1); const b = rg.getBoundingClientRect();
+    if (x >= b.left - 2 && x <= b.right + 2 && y >= b.top - 2 && y <= b.bottom + 2){ o = q; break; }
+  }
+  const inRt = node.parentElement.closest("rt,rp,.rt");
+  const w = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
+  let k = 0, t;
+  while ((t = w.nextNode())){
+    const skip = t.parentElement.closest("rt,rp,.rt");
+    if (t === node){
+      if (inRt){ const rb = t.parentElement.closest(".rb,ruby"); return {i:+p.dataset.i, k:Math.max(0, k - 1), rt:true}; }
+      return {i:+p.dataset.i, k:k + o};
+    }
+    if (!skip) k += t.data.length;
+  }
+  return null;
+}
 /* 指先は字の脇（点線の印や行間）に少しずれやすい。押した点の近くにある手がかりの語を探す */
 function ktNear(x, y){
   const pad = measureEm() * 0.6;
@@ -2255,6 +2352,9 @@ function lookupAt(target, x, y){
   if (k){ showCard(k, x, y); return true; }
   const ch = charAt(x, y);
   if (ch && KYUJI.has(ch)){ showCard({kind:"kyuji", text:ch, shin:KYUJI.get(ch)}, x, y); return true; }
+  const lp = linePosAt(x, y);
+  const h = lp && kanaHelpAt(doc.lines[lp.i], lp.k);
+  if (h){ showCard({kind:"kana", text:h.old, ...h}, x, y); return true; }
   return false;
 }
 // 長押し：どの字でも調べる
