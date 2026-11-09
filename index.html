@@ -130,6 +130,8 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .eng .tcy{letter-spacing:0;margin-inline-end:var(--ls,0)}
 .eng rt{letter-spacing:0}
 .rb{position:relative}
+.rt.rs{top:0!important;transform:none!important}           /* 行頭：ルビを行の頭に揃える */
+.rt.re{top:auto!important;bottom:0;transform:none!important} /* 行末：ルビを行の末に揃える */
 .rt{position:absolute;left:50%;top:50%;transform:translateY(-50%);margin-left:1.08em;font-size:.5em;line-height:1;letter-spacing:0;white-space:nowrap;font-weight:400;text-indent:0}
 .z,.z *{letter-spacing:0}
 .z.hw,.z.tcy{margin-inline-end:0}
@@ -603,11 +605,10 @@ const SAMPLE = [
 ].join("\n");
 
 /* ---------- 版情報（GitHubに置くときに書き換わる） ---------- */
-const APP_VERSION = "19", APP_DATE = "2026-11-08";
+const APP_VERSION = "20", APP_DATE = "2026-11-08";
 const APP_NOTES = [
-  "最後の頁の左下に「読了へ」の目印を出すようにしました。めくるか、目印を押すと「読了」のカードが出ます。めくり方が「スクロール」のときも、最後まで流すと目印が出ます",
-  "最小化したままでも、日付が変わってから戻ってきたときに「今日の一頁」が出るようにしました",
-  "「情報」に「このアプリについて」の欄を設けました"
+  "ことばの手がかりを見直しました。「鴉（からす）」「梯子（はしご）」のように、読めれば意味も分かる語には手がかりを出さないようにしました",
+  "代わりに、「丹塗（にぬり）」「市女笠（いちめがさ）」「直垂（ひたたれ）」「御新造（ごしんぞ）」など、読めても意味が分かりにくい古い言葉を百二十あまり加えました。昔の時刻（申の刻など）や月の呼び名も引けます"
 ]
 
 /* 応援のリンク（決まったら入れる。空のあいだは出さない） */
@@ -826,14 +827,30 @@ function fmtQty(v, u){
   if (u === "g") return v >= 1000 ? `約${fmtNum(v / 1000)}キログラム` : `約${fmtNum(v)}グラム`;
   return v >= 1 ? `約${fmtNum(v)}リットル` : `約${fmtNum(v * 1000)}ミリリットル`;
 }
+/* 読みの照合用：旧仮名づかいのルビ（らくちう・ついぢ・てふてふ）を現代仮名の読みとそろえる */
+const KANA_I = "きしちにひみりぎじびぴ", KANA_E = "けせてねへめれげぜでべぺ", KANA_A = "かさたなはまやらわがざだばぱ";
+const KANA_O = "こそとのほもよろおごぞどぼぽ", KANA_IE = "きしちにひみりぎじじびぴ";
+function kanaKey(t){
+  let s = (t || "").replace(/[ぁぃぅぇぉゃゅょっゎ]/g, c => String.fromCharCode(c.charCodeAt(0) + 1));
+  s = s.replace(/(.)ゝ/g, "$1$1").replace(/(.)ゞ/g, (m, c) => c + String.fromCharCode(c.charCodeAt(0) + 1));   // 踊り字
+  s = s.replace(/ゐ/g, "い").replace(/ゑ/g, "え").replace(/ぢ/g, "じ").replace(/づ/g, "ず").replace(/を/g, "お").replace(/くわ/g, "か").replace(/ぐわ/g, "が");
+  if (s.length > 1) s = s[0] + s.slice(1).replace(/[はひふへほ]/g, c => "わいうえお"["はひふへほ".indexOf(c)]);
+  s = s.replace(new RegExp(`([${KANA_I}])やう`, "g"), "$1よう")
+       .replace(new RegExp(`([${KANA_I}])う`, "g"), "$1ゆう")
+       .replace(new RegExp(`([${KANA_E}])う`, "g"), (m, c) => KANA_IE[KANA_E.indexOf(c)] + "よう")
+       .replace(new RegExp(`([${KANA_A}])う`, "g"), (m, c) => KANA_O[KANA_A.indexOf(c)] + "う");
+  return s;
+}
+
 /* ことば辞書（AIが作成した解説）：親文字と読みの組で引く */
 let DICT = null;
 const dictReady = fetch("kotoba.json").then(r => r.ok ? r.json() : []).then(rows => {
   const byRuby = new Map(), bare = [];
-  rows.forEach(([base, yomi, word, wyomi, mean, rubyOnly]) => {
+  rows.forEach(([base, yomi, word, wyomi, mean, flags]) => {
     const e = {base, yomi, word, wyomi, mean};
-    byRuby.set(base + "|" + yomi, e);
-    if ([...base].length >= 2 && !rubyOnly) bare.push(e);   // 読み違えやすい語は、ルビがあるときだけ
+    if (flags & 2) return;   // 印 2：読めれば意味も分かる語（難しいのは字だけ）。注釈は出さない
+    byRuby.set(base + "|" + kanaKey(yomi), e);
+    if ([...base].length >= 2 && !(flags & 1)) bare.push(e);   // 印 1：読み違えやすい語は、ルビがあるときだけ
   });
   bare.sort((a, b) => b.base.length - a.base.length);
   const bareMap = new Map(); bare.forEach(e => { if (!bareMap.has(e.base)) bareMap.set(e.base, e); });
@@ -870,7 +887,7 @@ function annotateDoc(doc){
       for (const sp of L.spans){
         if (sp.t !== "ruby") continue;
         const base = L.cells.slice(sp.s, sp.e).map(c => c.ch).join("");
-        const e = DICT.byRuby.get(base + "|" + sp.rt);
+        const e = DICT.byRuby.get(base + "|" + kanaKey(sp.rt));
         if (!e) continue;
         let free = true; for (let k = sp.s; k < sp.e; k++) if (taken[k]) free = false;
         if (!free) continue;
@@ -887,7 +904,7 @@ function annotateDoc(doc){
           // カタカナ語は、前後もカタカナなら長い語の一部なので出さない（「セメント」の中の「マント」など）
           if (KANA_RUN.test(m[0][0]) && (KANA_RUN.test(str[m.index - 1] || "") || KANA_RUN.test(str[m.index + m[0].length] || ""))) continue;
           const a = at[m.index], b = at[m.index + m[0].length - 1] + 1;
-          if (rubies.some(r => r.s < b && a < r.e && !(r.s === a && r.e === b))) continue;
+          if (rubies.some(r => r.s < b && a < r.e)) continue;   // ルビのある語は、読みが辞書と合うときだけ（上で拾い済み）
           let free = true; for (let k = a; k < b; k++) if (taken[k]) free = false;
           if (!free) continue;
           for (let k = a; k < b; k++) taken[k] = 1;
@@ -1016,13 +1033,9 @@ function buildUnits(L){
       const isKana = c => c && !c.g && (HIRA.test(c.ch) || KATA.test(c.ch));
       // ルビは親文字の中央に置き、はみ出す分は前後のかなに半字まで掛ける。
       // 掛けられない側（漢字や約物）は、その分だけ親文字の外を空ける。親文字どうしの間は広げない。
-      const half = excess / 2;
-      const ovA = isKana(cells[sp.s - 1]) ? Math.min(0.5, half) : 0;
-      const ovB = isKana(cells[sp.e]) ? Math.min(0.5, half) : 0;
-      const mA = +(half - ovA).toFixed(3), mB = +(half - ovB).toFixed(3);
-      const mstyle = (mA || mB) ? ` style="margin-inline:${mA}em ${mB}em"` : "";
-      u = {k:"ruby", html:`<span class="rb"${mstyle}>${run(sp.s, sp.e)}<span class="rt">${esc(sp.rt)}</span></span>`,
-           w:bw + mA + mB, n:sp.e - sp.s, a:CL[cells[sp.s].ch], z:CL[cells[sp.e - 1].ch]};
+      u = {k:"ruby", n:sp.e - sp.s, a:CL[cells[sp.s].ch], z:CL[cells[sp.e - 1].ch],
+           rb:{inner:run(sp.s, sp.e), rt:sp.rt, bw, excess, pk:isKana(cells[sp.s - 1]), nk:isKana(cells[sp.e])}};
+      setRuby(u, "mid");
       u.d = deco[q]; u.c = q; q = sp.e;
     } else if (tcyAt.has(q)){
       const sp = tcyAt.get(q);
@@ -1035,6 +1048,23 @@ function buildUnits(L){
     units.push(u);
   }
   return units;
+}
+/* ルビの置き方。mid＝親文字の中央（はみ出す分は前後のかなに半字まで掛ける）、
+   head＝行頭（前の行のかなには掛けられないので、行の頭に揃えて後ろのかなにだけ掛ける）、tail＝行末（その逆） */
+function setRuby(u, mode){
+  const {inner, rt, bw, excess, pk, nk} = u.rb;
+  let mA, mB, cls = "rt";
+  if (mode === "head"){ mA = 0; mB = excess - (nk ? Math.min(0.5, excess) : 0); cls += " rs"; }
+  else if (mode === "tail"){ mB = 0; mA = excess - (pk ? Math.min(0.5, excess) : 0); cls += " re"; }
+  else {
+    const half = excess / 2;
+    mA = half - (pk ? Math.min(0.5, half) : 0);
+    mB = half - (nk ? Math.min(0.5, half) : 0);
+  }
+  mA = +mA.toFixed(3); mB = +mB.toFixed(3);
+  const mstyle = (mA || mB) ? ` style="margin-inline:${mA}em ${mB}em"` : "";
+  u.html = `<span class="rb"${mstyle}>${inner}<span class="${cls}">${esc(rt)}</span></span>`;
+  u.w = bw + mA + mB;
 }
 function pairWidth(units, k){              // 約物が続くときの二分詰め
   const u = units[k];
@@ -1135,6 +1165,14 @@ function renderParaE(L, N, opt){
   const units = buildUnits(L);
   const pw = units.map((u, k) => pairWidth(units, k));
   const lns = breakLines(units, pw, lenF, lenW);
+  // 行頭・行末に来たルビは、行の外（前後の行のかな）に掛けない
+  lns.forEach((ln, idx) => {
+    if (ln.j - ln.i < 2) return;
+    const h = units[ln.i];
+    if (h.k === "ruby" && h.rb.excess > 0 && idx > 0 && h.rb.pk){ setRuby(h, "head"); pw[ln.i] = h.w; }
+    const tk = ln.hang ? ln.j - 2 : ln.j - 1, t = units[tk];
+    if (t && t.k === "ruby" && t.rb.excess > 0 && !ln.last && t.rb.nk && !ln.hang){ setRuby(t, "tail"); pw[tk] = t.w; }
+  });
   if (opt.pi != null) ENG.breaks[opt.pi] = lns.map(ln => units[ln.i] ? units[ln.i].c : 0);   // 読み上げで行を光らせるため
   let h = head;
   lns.forEach((ln, idx) => {
@@ -1275,7 +1313,12 @@ function paginate(W){
   const ps = [];
   let cur = null;
   lines.forEach((L, j) => {
-    if (cur && (L.e - cur.s > W + 0.5 || L.brk)){ ps.push(cur); cur = null; }
+    if (cur && (L.e - cur.s > W + 0.5 || L.brk)){
+      // 頁の左端は、次の行のルビの手前まで（行間の真ん中で切ると、次の行のルビの端が見えてしまう）
+      const prev = lines[j - 1];
+      cur.e = Math.max(prev.d1 + 0.5, Math.min(cur.e, L.s - 0.5));
+      ps.push(cur); cur = null;
+    }
     if (!cur) cur = {s: ps.length ? L.s : Math.min(0, L.s), e: L.e, first: j};
     else cur.e = L.e;
   });
