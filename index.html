@@ -607,9 +607,10 @@ const SAMPLE = [
 ].join("\n");
 
 /* ---------- 版情報（GitHubに置くときに書き換わる） ---------- */
-const APP_VERSION = "23", APP_DATE = "2026-11-09";
+const APP_VERSION = "24", APP_DATE = "2026-11-09";
 const APP_NOTES = [
-  "旧字体などの外字を、入力者注の番号（「第3水準1-84-77」など）から本来の字に直して表示するようにしました。これまで〓になっていた字の多くが、そのまま読めます。触れると、これまでどおり入力者注も読めます"
+  "横書きの数字を、縦組みに合わせて立てるようにしました。二桁までは一字分の幅に横に並べ（縦中横）、三桁以上は一字ずつ立てます。「No.5」「3.14」や数式のような横書きの語の一部は、これまでどおり寝かせたままです",
+  "ルビが親文字より短いときは、真ん中に固めず、親文字の幅に均等に割り付けるようにしました。読みが各字の横に並び、紙の本の組み方に近づきます"
 ]
 
 /* 応援のリンク（決まったら入れる。空のあいだは出さない） */
@@ -682,12 +683,34 @@ function parseAozora(raw){
   const st = {ind:null, align:null, brk:false, open:[]};
   const lines = [];
   for (const s of body){ const L = parseLine(s, st, report); if (L) lines.push(L); }
+  for (const L of lines) autoTcy(L, report);
   return {
     title: head[0] || "無題",
     sub: head.slice(1, -1),
     author: head.length > 1 ? head[head.length - 1] : "",
     lines, colophon, report
   };
+}
+
+/* 数字の自動縦中横：半角数字の並びが一、二桁なら縦中横に、三桁以上なら一字ずつ全角にして立てる。
+   英字や「.」「,」「:」「/」などとつながる数字（No.5、3.14、1/2）は、横書きの語の一部としてそのまま寝かせておく */
+function autoTcy(L, rep){
+  const {cells, spans} = L, N = cells.length;
+  const isD = c => c && !c.g && /^[0-9]$/.test(c.ch);
+  // 横書きの語や式の一部（英字・ギリシャ文字・全角英数字・半角の記号や括弧とつながる数字）は寝かせたまま
+  const glue = c => c && !c.g && (/^[!-\/:-~]$/.test(c.ch) || /^[\u00C0-\u04FF\uFF01-\uFF5E]$/.test(c.ch));
+  const inTcy = new Uint8Array(N);
+  for (const sp of spans) if (sp.t === "tcy" || sp.t === "ruby") for (let k = Math.max(0, sp.s); k < Math.min(N, sp.e); k++) inTcy[k] = 1;
+  for (let a = 0; a < N; a++){
+    if (!isD(cells[a])) continue;
+    let b = a; while (b < N && isD(cells[b])) b++;
+    let free = true; for (let k = a; k < b; k++) if (inTcy[k]) free = false;
+    if (free && !glue(cells[a - 1]) && !glue(cells[b])){
+      if (b - a <= 2){ spans.push({t:"tcy", s:a, e:b, auto:true}); rep.tcyAuto = (rep.tcyAuto || 0) + 1; }
+      else for (let k = a; k < b; k++) cells[k] = {...cells[k], ch:String.fromCharCode(cells[k].ch.charCodeAt(0) + 0xFEE0)};
+    }
+    a = b - 1;
+  }
 }
 
 function parseLine(s0, st, rep){
@@ -756,7 +779,9 @@ function parseLine(s0, st, rep){
         let b = rubyMark;
         if (b == null){
           b = cells.length;
-          if (b > 0){ const kind = scriptOf(cells[b - 1]); while (b > 0 && scriptOf(cells[b - 1]) === kind) b--; }
+          // 親文字は、直前のルビの親文字の中までは遡らない（「下人《げにん》丹塗《にぬり》」の「丹塗」）
+          const floor = spans.reduce((m, sp) => sp.t === "ruby" ? Math.max(m, sp.e) : m, 0);
+          if (b > floor){ const kind = scriptOf(cells[b - 1]); while (b > floor && scriptOf(cells[b - 1]) === kind) b--; }
         }
         if (b < cells.length){ spans.push({t:"ruby", s:b, e:cells.length, rt:s.slice(k + 1, close)}); rep.ruby++; }
         rubyMark = null; k = close + 1; continue;
@@ -1077,7 +1102,14 @@ function setRuby(u, mode){
   }
   mA = +mA.toFixed(3); mB = +mB.toFixed(3);
   const mstyle = (mA || mB) ? ` style="margin-inline:${mA}em ${mB}em"` : "";
-  u.html = `<span class="rb"${mstyle}>${inner}<span class="${cls}">${esc(rt)}</span></span>`;
+  // ルビが親文字より短いときは、親文字の幅に 1:2:1 の割合で均等に割り付ける（JIS X 4051）。真ん中に固まらず、各字の読みの位置に近づく
+  const n = [...rt].length;
+  let rstyle = "";
+  if (excess < 0 && n >= 2 && bw >= 2){
+    const gap = (bw - n * 0.5) / n;                     // 親文字の em で
+    rstyle = ` style="top:0;transform:none;padding-top:${(gap).toFixed(3)}em;letter-spacing:${(gap * 2).toFixed(3)}em"`;
+  }
+  u.html = `<span class="rb"${mstyle}>${inner}<span class="${cls}"${rstyle}>${esc(rt)}</span></span>`;
   u.w = bw + mA + mB;
 }
 function pairWidth(units, k){              // 約物が続くときの二分詰め
